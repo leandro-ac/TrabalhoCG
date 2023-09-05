@@ -5,6 +5,7 @@ import {initRenderer,
         initDefaultBasicLight,
         setDefaultMaterial,
         InfoBox,
+        SecondaryBox,
         onWindowResize,
         createGroundPlaneXZ} from "../libs/util/util.js";
 
@@ -47,52 +48,125 @@ let planeZ = 40;
 let plane = createGroundPlaneXZ(planeX, planeZ)
 scene.add(plane);
 
-
-let cubeGeometry = new THREE.BoxGeometry(2, 1, 1);
-
-for(let i = 0; i < planeX/2; i++){
-  let cube = new THREE.Mesh(cubeGeometry, material);
-  // position the cube
-  cube.position.set(-planeX/2 + i * 2 + 1, 0.5, -planeZ/2);
-
-  scene.add(cube);
+let size = {
+  x: planeX/10,
+  y: 1,
+  z: 1,
 }
-cubeGeometry = new THREE.BoxGeometry(1, 1, 2);
 
-for(let i = 0; i < planeZ/2; i++){
-  let leftWall = new THREE.Mesh(cubeGeometry, material);
-  let rightWall = new THREE.Mesh(cubeGeometry, material);
-  // position the cube
-  leftWall.position.set(-planeX/2, 0.5, -planeZ/2 + i * 2 +1);
-  rightWall.position.set(planeX/2, 0.5, -planeZ/2 + i * 2 +1);
+// TOP BORDER
+let brickGeometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+
+for(let i = 0; i < 10; i++){
+  let brick = new THREE.Mesh(brickGeometry, material);
+  brick.position.set(-planeX/2 + i*size.x + size.x/2,
+                     size.y/2,
+                    -planeZ/2 + size.z/2);
+  scene.add(brick);
+}
+
+// SIDE BORDERS
+brickGeometry = new THREE.BoxGeometry(size.z, size.y, size.x);
+
+for(let i = 0; i < 20; i++){
+  let leftWall = new THREE.Mesh(brickGeometry, material);
+  let rightWall = new THREE.Mesh(brickGeometry, material);
+  // position the brick
+  leftWall.position.set(-planeX/2 , size.y/2 , -planeZ/2 + i*size.x + size.x/2);
+  rightWall.position.set(planeX/2 , size.y/2 , -planeZ/2 + i*size.x + size.x/2);
 
   scene.add(leftWall);
   scene.add(rightWall);
 }
 
-cubeGeometry = new THREE.BoxGeometry(2, 1, 1);
-
-for(let i = 0; i < planeX/4; i++){
-    for(let j = 0; j < planeZ/6; j++){
-        let cube = new THREE.Mesh(cubeGeometry, material);
-
-        // position the cube
-        cube.position.set(j*2 + j*0.2 - planeX/3, 0.5, i*2 +i*0.2 + - planeZ/4);
-
-        // add the cube to the scene
-        scene.add(cube);
-    }
-}
-
-cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+// BRICKS
+let bricksX = (planeX-size.y)/10;
+brickGeometry = new THREE.BoxGeometry(bricksX, size.y, size.x);
+const edges = new THREE.EdgesGeometry(brickGeometry); 
 
 for(let i = 0; i < 5; i++){
-  let player = new THREE.Mesh(cubeGeometry, material);
-  player.position.set(-2 + i * 1, 0.5, planeZ/2 - 5);
-  scene.add(player);
+  for(let j = 0; j < 10; j++){
+    let brick = new THREE.Mesh(brickGeometry, material);
+    brick.position.set(j*bricksX - planeX/2 + bricksX/2 + size.z/2, 
+                      size.y/2,
+                      i*size.y -planeZ/4);
+    scene.add(brick);
+    // add brick border
+    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color: 0xffffff})); 
+    line.position.set(j*bricksX - planeX/2 + bricksX/2 + size.z/2, 
+                      size.y/2,
+                      i*size.y -planeZ/4);
+    scene.add(line);
+  }
 }
 
+// PLAYER
+let player = {
+  segments: 5,
+  x: 1,
+  y: 1,
+  z: 1
+}
 
+brickGeometry = new THREE.BoxGeometry(player.x, player.y, player.z);
+let playerSegment = new Array(player.segments);
+
+for(let i = 0; i < player.segments; i++){
+  playerSegment[i] = new THREE.Mesh(brickGeometry, material);
+  playerSegment[i].position.set(-2*player.x + i*player.x , player.y/2  , planeZ/2 - size.y - 3);
+  scene.add(playerSegment[i]);
+}
+
+//create sphere
+let sphereGeometry = new THREE.SphereGeometry(0.25, 16, 32);
+let sphere = new THREE.Mesh(sphereGeometry, material);
+sphere.position.set(0.0,0.2,14.25);
+
+scene.add(sphere);
+
+window.addEventListener('mousemove', onMouseMove);
+let leftBox = new SecondaryBox("");
+leftBox.changeMessage("Intersection on Layer ");
+// -- Create raycaster
+let raycaster = new THREE.Raycaster();
+
+// Enable layers to raycaster and camera (layer 0 is enabled by default)
+raycaster.layers.enable( 0 );
+camera.layers.enable( 0 );
+
+let raycasterPlane = createGroundPlaneXZ(planeX, planeZ);
+raycasterPlane.layers.set(0);
+scene.add(raycasterPlane);
+
+function onMouseMove(event) 
+{
+  console.log("teste")
+   let pointer = new THREE.Vector2();
+   pointer.x =  (event.clientX / window.innerWidth) * 2 - 1;
+   pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+   raycaster.setFromCamera(pointer, camera);
+   // calculate objects intersecting the picking ray
+   let intersects = raycaster.intersectObject(raycasterPlane)
+   // -- Find the selected objects ------------------------------
+   if (intersects.length > 0) // Check if there is a intersection
+   {      
+      for(let i = 0; i < player.segments; i++){
+        playerSegment[i].position.x += event.movementX/10;
+      }
+      let point = intersects[0].point; // Pick the point where interception occurrs
+      showInterceptionCoords(point);
+   }
+};
+
+
+function showInterceptionCoords(point)
+{
+   leftBox.changeMessage("Intersection on Layer " + "  [" +  
+       point.x.toFixed(2) + ", " +
+       point.y.toFixed(2) + ", " + 
+       point.z.toFixed(2) + "]"); 
+}
 
 // Use this to show information onscreen
 let controls = new InfoBox();

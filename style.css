@@ -1,0 +1,38 @@
+:root {
+    --frame-color: #F5F5F5AA;
+    --font-color: #121330;
+    --shadow-color: #00000033;
+}
+
+* {
+    padding: 0;
+    box-sizing: border-box;
+    color: var(--font-color);
+}
+
+#menu {
+    border: none;
+    outline: none;
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 10px;
+    min-width: 200px;
+    width: fit-content;
+    height: fit-content;
+    padding: 2em;
+    max-width: 70%;
+    box-shadow: 0px 8px 16px 0px var(--shadow-color);
+    background-color: var(--frame-color);
+}
+
+#menu::backdrop {
+    background-color: #121330;
+    opacity: .3;
+}
+
+#menu p {
+    text-align: center;
+}

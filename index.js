@@ -15,7 +15,7 @@ material = setDefaultMaterial(); // create a basic material
 light = initDefaultBasicLight(scene); // Create a basic light to illuminate the scene
 
 // Listen window size changes
-window.addEventListener( 'resize', function(){onWindowResize(camera, renderer)}, false );
+window.addEventListener( 'resize', function(){onWindowResize(camera, renderer, orthoSize)}, false );
 
 // Show axes (parameter is size of each axis)
 let axesHelper = new THREE.AxesHelper( 12 );
@@ -47,12 +47,12 @@ orbit = new OrbitControls( camera, renderer.domElement ); // Enable mouse rotati
 
 let bricksAmount = 10;
 const borderColor = "#FF3FA4";
-const color ="";
+const color = "#4EF037";
 let size = {
     x: planeX/bricksAmount,
     y: 1,
     z: planeZ/30,
-    material: new THREE.MeshLambertMaterial({color: "#4EF037"}),
+    material: new THREE.MeshLambertMaterial({color: color}),
     borderMaterial: new THREE.MeshLambertMaterial({color: borderColor})
 }
 
@@ -62,7 +62,6 @@ let brickGeometry = new THREE.BoxGeometry(planeX - size.z, size.y, size.z);
 let topWall = {
     object: new THREE.Mesh(brickGeometry, size.borderMaterial),
     bb: new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()),
-    normal: new THREE.Vector3(0.0, 0.0, 1.0)
 }
 topWall.object.position.set(0, size.y/2, -planeZ/2 + size.z/2);
 topWall.bb.setFromObject(topWall.object);
@@ -73,7 +72,6 @@ brickGeometry = new THREE.BoxGeometry(size.z, size.y, planeZ);
 let leftWall = {
     object: new THREE.Mesh(brickGeometry, size.borderMaterial),
     bb: new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()),
-    normal: new THREE.Vector3(1.0, 0.0, 0.0)
 }
 leftWall.object.position.set(-planeX/2, size.y/2, 0)
 leftWall.bb.setFromObject(leftWall.object);
@@ -81,7 +79,6 @@ leftWall.bb.setFromObject(leftWall.object);
 let rightWall = {
     object: new THREE.Mesh(brickGeometry, size.borderMaterial),
     bb: new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()),
-    normal: new THREE.Vector3(-1.0, 0.0, 0.0)
 }
 rightWall.object.position.set(planeX/2, size.y/2, 0)
 rightWall.bb.setFromObject(rightWall.object);
@@ -100,12 +97,11 @@ for(let i = 0; i < 5; i++){
     for(let j = 0; j < 10; j++){
         bricks[i][j] = {};
         let brick = new THREE.Mesh(brickGeometry, size.material);
-        brick.position.set(j*bricksX + bricksOffset,    size.y/2,   i*size.z -planeZ/4);
+        brick.position.set(j*bricksX + bricksOffset,    size.y/2,   i*size.z - planeZ/4);
         // add brick border
         const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color: "#38E54D"})); 
         line.position.copy(brick.position);
         scene.add(brick, line);
-        //line.visible = false;
 
         bricks[i][j].object = brick;
         bricks[i][j].line = line;
@@ -118,36 +114,31 @@ function createBrickBoundingBoxes(brickBB, object){
     let cornerSize = 0.2;
     let geometry = new THREE.BoxGeometry((bricksX - 0.2 - cornerSize*2), size.y, cornerSize);
     let auxBrick = new THREE.Mesh(geometry, size.material);
-    
-    let auxBrick2 = new THREE.Mesh(geometry, size.material);
+
     auxBrick.position.set(object.position.x, object.position.y, object.position.z + size.z/2 - 0.1);
     let topBB = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
-    auxBrick2.position.set(object.position.x, object.position.y, object.position.z - size.z/2 + 0.1);
-    let bottomBB = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick2);
+    auxBrick.position.set(object.position.x, object.position.y, object.position.z - size.z/2 + 0.1);
+    let bottomBB = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
 
+    let sideGeometry = new THREE.BoxGeometry(cornerSize, size.y, size.z - 0.1 - cornerSize*2);
+    auxBrick.geometry = sideGeometry;
 
-    let geometry2 = new THREE.BoxGeometry(cornerSize, size.y, size.z - 0.1 - cornerSize*2);
-    let auxBrick3 = new THREE.Mesh(geometry2, size.material);
-    let auxBrick4 = new THREE.Mesh(geometry2, size.material);
-    auxBrick3.position.set(object.position.x - size.x/2 + size.x/10, object.position.y, object.position.z);
-    auxBrick4.position.set(object.position.x + size.x/2 - size.x/10, object.position.y, object.position.z);
-    let leftBB = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick3);
-    let rightBB = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick4);
+    auxBrick.position.set(object.position.x - size.x/2 + size.x/10, object.position.y, object.position.z);
+    let leftBB = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
+    auxBrick.position.set(object.position.x + size.x/2 - size.x/10, object.position.y, object.position.z);
+    let rightBB = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
 
-    let geometry3 = new THREE.BoxGeometry(cornerSize, size.y, cornerSize);
-    let auxBrick5 = new THREE.Mesh(geometry3, size.material);
-    let auxBrick6 = new THREE.Mesh(geometry3, material);
-    let auxBrick7 = new THREE.Mesh(geometry3, size.material);
-    let auxBrick8 = new THREE.Mesh(geometry3, material);
-    auxBrick5.position.set(object.position.x - size.x/2 + size.x/10, object.position.y, object.position.z - size.z/2 + 0.1);
-    auxBrick6.position.set(object.position.x + size.x/2 - size.x/10, object.position.y, object.position.z - size.z/2 + 0.1);
-    auxBrick7.position.set(object.position.x - size.x/2 + size.x/10, object.position.y, object.position.z + size.z/2 - 0.1);
-    auxBrick8.position.set(object.position.x + size.x/2 - size.x/10, object.position.y, object.position.z + size.z/2 - 0.1);
-    let topLeftCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick5);
-    let topRightCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick6);
-    let bottomLeftCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick7);
-    let bottomRightCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick8);
+    let cornerGeometry = new THREE.BoxGeometry(cornerSize, size.y, cornerSize);
+    auxBrick.geometry = cornerGeometry;
 
+    auxBrick.position.set(object.position.x - size.x/2 + size.x/10, object.position.y, object.position.z - size.z/2 + 0.1);
+    let topLeftCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
+    auxBrick.position.set(object.position.x + size.x/2 - size.x/10, object.position.y, object.position.z - size.z/2 + 0.1);
+    let topRightCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
+    auxBrick.position.set(object.position.x - size.x/2 + size.x/10, object.position.y, object.position.z + size.z/2 - 0.1);
+    let bottomLeftCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
+    auxBrick.position.set(object.position.x + size.x/2 - size.x/10, object.position.y, object.position.z + size.z/2 - 0.1);
+    let bottomRightCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
 
     brickBB[0] = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(object);
     brickBB[1] = topBB;
@@ -158,9 +149,6 @@ function createBrickBoundingBoxes(brickBB, object){
     brickBB[6] = topRightCorner;
     brickBB[7] = bottomLeftCorner;
     brickBB[8] = bottomRightCorner;
-
-    //object.visible = false
-    //scene.add(auxBrick, auxBrick2, auxBrick3, auxBrick4, auxBrick5, auxBrick6, auxBrick7, auxBrick8);
 }
 
 // PLAYER
@@ -220,13 +208,13 @@ export function onMouseMove(event)
     if (intersects.length > 0) {      
         let point = intersects[0].point; // Pick the point where interception occurrs
 
-        if (point.x + PLAYER_LEFT_END < (LEFT_LIMIT)){
+        if (point.x + PLAYER_LEFT_END < LEFT_LIMIT){
             for (let i = 0; i < player.segments; i++){
                 playerSegments[i].object.position.x = i * player.x + LEFT_OFFSET;
                 playerSegments[i].bb.copy(playerSegments[i].object.geometry.boundingBox).applyMatrix4(playerSegments[i].object.matrixWorld);
                 playerSegments[i].line.position.copy(playerSegments[i].object.position);
             }
-        } else if (point.x - PLAYER_LEFT_END > (-LEFT_LIMIT)){
+        } else if (point.x - PLAYER_LEFT_END > -LEFT_LIMIT){
             for (let i = 0; i < player.segments; i++){
                 let index = player.segments-1-i;
                 playerSegments[index].object.position.x = -i * player.x - LEFT_OFFSET;
@@ -272,88 +260,87 @@ ball.bb = new THREE.Sphere(ball.object.position, ball.radius)
 scene.add(ball.object);
 
 let bricksDestroyed = 0;
-let anteriorHit = null;
+const BALL_INFERIOR_LIMIT = playerSegments[0].object.position.z - player.z*3;
+const BALL_SIDE_LIMIT = leftWall.object.position.x + size.z*2;
 function checkCollisions() {
-    if (ball.bb.intersectsBox(topWall.bb)){
+    // Collision with the walls
+    if (ball.object.position.z + ball.radius < -BALL_INFERIOR_LIMIT && ball.bb.intersectsBox(topWall.bb)){
         ball.dz = -ball.dz;
     }
-    if (ball.bb.intersectsBox(leftWall.bb)){
+    if (ball.object.position.x - ball.radius < BALL_SIDE_LIMIT && ball.bb.intersectsBox(leftWall.bb)){
         ball.dx = -ball.dx;
     }
-    if (ball.bb.intersectsBox(rightWall.bb)){
+    if (ball.object.position.x + ball.radius > -BALL_SIDE_LIMIT && ball.bb.intersectsBox(rightWall.bb)){
         ball.dx = -ball.dx;
     }
 
-    playerSegments.some((segment, index) => {
-        if (ball.bb.intersectsBox(segment.bb)){
-            ball.dx = Math.cos(playerSegments[index].angle)*planeX/100;
-            ball.dz = -Math.sin(playerSegments[index].angle)*planeZ/200;
-            return true;
-        } 
-    });
-
-    for (let i = 0; i < 5; i++){
-        for (let j = 0; j < 10; j++){
-            if (bricks[i][j].bb && bricks[i][j].bb != anteriorHit && ball.bb.intersectsBox(bricks[i][j].bb[0])){
-                anteriorHit = bricks[i][j].bb;
-                if (ball.bb.intersectsBox(bricks[i][j].bb[1])){
-                    ball.dz = Math.abs(ball.dz);
-                    console.log("baixo");
-                } else if (ball.bb.intersectsBox(bricks[i][j].bb[2])){
-                    ball.dz = ball.dz > 0 ? -ball.dz : ball.dz;
-                    console.log("cima");
-                } else if (ball.bb.intersectsBox(bricks[i][j].bb[3])){
-                    ball.dx = ball.dx > 0 ? -ball.dx : ball.dx;
-                    console.log("esquerda");
-                } else if (ball.bb.intersectsBox(bricks[i][j].bb[4])){
-                    ball.dx = Math.abs(ball.dx);
-                    console.log("direita");
-                } else if (ball.bb.intersectsBox(bricks[i][j].bb[5])){ // Corners
-                    ball.dx = -Math.abs(ball.dx);
-                    ball.dz = -Math.abs(ball.dz);
-                    console.log("top left");
-                } else if (ball.bb.intersectsBox(bricks[i][j].bb[6])){
-                    ball.dx = Math.abs(ball.dx);
-                    ball.dz = -Math.abs(ball.dz);
-                    console.log("top right");
-                } else if (ball.bb.intersectsBox(bricks[i][j].bb[7])){
-                    ball.dx = -Math.abs(ball.dx);
-                    ball.dz = Math.abs(ball.dz);
-                    console.log("bottom left");
-                } else if (ball.bb.intersectsBox(bricks[i][j].bb[8])){
-                    ball.dx = Math.abs(ball.dx);
-                    ball.dz = Math.abs(ball.dz);
-                    console.log("bottom right");
-                }
-
-                bricks[i][j].object.visible = false;
-                bricks[i][j].line.visible = false;
-                bricks[i][j].bb = null;
-                bricksDestroyed++;
+    // Collsion with the player
+    // Only verifies when the ball is near the player, otherwise it won't execute aiming optimization
+    if (ball.object.position.z + ball.radius > BALL_INFERIOR_LIMIT){
+        playerSegments.some((segment, index) => {
+            if (ball.bb.intersectsBox(segment.bb)){
+                ball.dx = Math.cos(playerSegments[index].angle)*planeX/100;
+                ball.dz = -Math.sin(playerSegments[index].angle)*planeZ/200;
                 return true;
+            } 
+        });
+    }
+    
+    // Collision with the bricks
+    if (ball.object.position.z - ball.radius < 0){
+        for (let i = 0; i < 5; i++){
+            for (let j = 0; j < 10; j++){
+                if (bricks[i][j].bb && ball.bb.intersectsBox(bricks[i][j].bb[0])){
+                    if (ball.bb.intersectsBox(bricks[i][j].bb[1])){
+                        ball.dz = Math.abs(ball.dz);
+                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[2])){
+                        ball.dz = ball.dz > 0 ? -ball.dz : ball.dz;
+                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[3])){
+                        ball.dx = ball.dx > 0 ? -ball.dx : ball.dx;
+                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[4])){
+                        ball.dx = Math.abs(ball.dx);
+                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[5])){ // Corners
+                        ball.dx = -Math.abs(ball.dx);
+                        ball.dz = -Math.abs(ball.dz);
+                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[6])){
+                        ball.dx = Math.abs(ball.dx);
+                        ball.dz = -Math.abs(ball.dz);
+                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[7])){
+                        ball.dx = -Math.abs(ball.dx);
+                        ball.dz = Math.abs(ball.dz);
+                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[8])){
+                        ball.dx = Math.abs(ball.dx);
+                        ball.dz = Math.abs(ball.dz);
+                    }
+
+                    bricks[i][j].object.visible = false;
+                    bricks[i][j].line.visible = false;
+                    bricks[i][j].bb[0].makeEmpty();
+                    bricksDestroyed++;
+                    return true;
+                }
             }
         }
     }
-
-    if (ball.object.position.z > planeZ/2 + player.z){
-        resetPosition();
-    }
-
     
+    // If ball is completely out of the bounds, reset the positions
+    if (ball.object.position.z - ball.radius > planeZ/2){
+        resetPosition();
+        menu.style.display = 'block';
+        //menu.querySelector("h1").innerText = 'Você perdeu.';
+    }
 }
 
 function moveBall(){
     ball.object.position.x += ball.dx;
     ball.object.position.z += ball.dz;
     ball.bb.center.copy(ball.object.position);
-    ball.bb.radius = ball.radius;
 }
 
 render();
 function render()
 {
     if (ball.move){
-        //end();
         moveBall();
         checkCollisions();
         moveBall();
@@ -369,6 +356,8 @@ function render()
 
 /***** OTHERS *****/
 
+const menu = document.getElementById('menu');
+
 function resetPosition(){
     for (let i = 0; i < playerSegments.length; i++){
         playerSegments[i].object.position.copy(initialPositions[i]);
@@ -382,35 +371,43 @@ function resetPosition(){
 
     document.removeEventListener('mousemove', onMouseMove);
     document.addEventListener('click', () => {
+        menu.style.display = 'none';
         document.addEventListener('mousemove', onMouseMove);
         ball.move = true;
     }, {once: true});
 }
 
 export function restart(){
-    for (let i = 0; i < playerSegments.length; i++){
-        playerSegments[i].object.position.copy(initialPositions[i]);
-        playerSegments[i].bb.copy(playerSegments[i].object.geometry.boundingBox).applyMatrix4(playerSegments[i].object.matrixWorld);
-        playerSegments[i].line.position.copy(playerSegments[i].object.position);
+    for (let i = 0; i < 5; i++){
+        for (let j = 0; j < 10; j++){
+            bricks[i][j].object.visible = true;
+            bricks[i][j].line.visible = true;
+            bricks[i][j].bb[0].copy(bricks[i][j].object.geometry.boundingBox).applyMatrix4(bricks[i][j].object.matrixWorld);;
+        }
     }
-    ball.object.position.copy(initialPositions[initialPositions.length - 1]);
-    ball.move = false;
-    ball.dx = Math.cos(playerSegments[player.center+1].angle)*planeX/100;
-    ball.dz = -Math.sin(playerSegments[player.center+1].angle)*planeZ/200;
+    resetPosition();
+    bricksDestroyed = 0;
+    menu.querySelector("h1").innerText = 'Jogo pausado';
+}
 
-    document.addEventListener('click', () => {
-        document.addEventListener('mousemove', onMouseMove);
+export function pause(pause){
+    if (pause){
+        menu.style.display = 'block';
+        ball.move = false;
+        document.removeEventListener('mousemove', onMouseMove);
+    } else { // unpause
+        menu.style.display = 'none';
         ball.move = true;
-    }, {once: true});
+        document.addEventListener('mousemove', onMouseMove);
+    }
 }
 
 function end(){
-    menu.style.display = 'block';
-    ball.move = false;
-    document.removeEventListener('mousemove', onMouseMove);
+    pause(true);
+    menu.querySelector("h1").innerText = 'Você venceu!';
 }
 
-// Use this to show information onscreen
+// Show information onscreen
 let controls = new InfoBox();
 controls.add("Controls");
 controls.addParagraph();

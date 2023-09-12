@@ -1,33 +1,26 @@
-import { onMouseMove, ball, restart, camera, orthoSize, aspect} from "./index.js";
+import { onMouseMove, ball, restart, camera, pause} from "./index.js";
 
-const menu = document.getElementById('menu');
+
 
 document.addEventListener('click', () => {
+    menu.querySelector("h1").innerText = 'Jogo pausado';
     document.addEventListener('mousemove', onMouseMove);
     ball.move = true;
 }, {once: true});
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'r' || e.key === 'R'){
-        document.removeEventListener('mousemove', onMouseMove);
         restart();
     }
 
     if (e.key === " "){
-        if (ball.move){
-            menu.style.display = 'block';
-            ball.move = false;
-            document.removeEventListener('mousemove', onMouseMove);
-        } else {
-            menu.style.display = 'none';
-            ball.move = true;
-            document.addEventListener('mousemove', onMouseMove);
-        }
+        pause(ball.move);
     }
 
     if (e.key === "Enter"){
         toggleFullScreen();
-        camera.zoom = 1;
+        camera.fov = 10;
+        console.log("🚀 ~ file: menu.js:23 ~ document.addEventListener ~ camera:", camera)
     }
 });
 

@@ -262,6 +262,7 @@ scene.add(ball.object);
 let bricksDestroyed = 0;
 const BALL_INFERIOR_LIMIT = playerSegments[0].object.position.z - player.z*3;
 const BALL_SIDE_LIMIT = leftWall.object.position.x + size.z*2;
+viewLimits();
 function checkCollisions() {
     // Collision with the walls
     if (ball.object.position.z + ball.radius < -BALL_INFERIOR_LIMIT && ball.bb.intersectsBox(topWall.bb)){
@@ -420,3 +421,23 @@ controls.add("Space - pause");
 controls.add("R - restart");
 controls.add("Hover over the board to move the player");
 controls.show();
+
+/***** Utilities *****/ 
+
+function viewLimits(){    
+    let geometry = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX, 0, BALL_INFERIOR_LIMIT), new THREE.Vector3(planeX, 0, BALL_INFERIOR_LIMIT) ] );
+    const inferiorLimit = new THREE.Line( geometry , material );
+    scene.add(inferiorLimit);
+    let geometry2 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX, 0, 0), new THREE.Vector3(planeX, 0, 0) ] );
+    const center = new THREE.Line( geometry2, material );
+    scene.add(center);
+    let geometry3 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX, 0, -BALL_INFERIOR_LIMIT), new THREE.Vector3(planeX, 0, -BALL_INFERIOR_LIMIT) ] );
+    const superiorLimit = new THREE.Line( geometry3 , material );
+    scene.add(superiorLimit);
+    let geometry4 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(BALL_SIDE_LIMIT, 0, planeZ/2), new THREE.Vector3(BALL_SIDE_LIMIT, 0, -planeZ/2) ] );
+    const leftWallLimit = new THREE.Line( geometry4 , material );
+    scene.add(leftWallLimit);
+    let geometry5 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-BALL_SIDE_LIMIT, 0, planeZ/2), new THREE.Vector3(-BALL_SIDE_LIMIT, 0, -planeZ/2) ] );
+    const rightWallLimit = new THREE.Line( geometry5 , material );
+    scene.add(rightWallLimit);
+}

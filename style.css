@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
+
 :root {
     --frame-color: #F5F5F5AA;
     --font-color: #121330;
@@ -8,6 +10,8 @@
     padding: 0;
     box-sizing: border-box;
     color: var(--font-color);
+    font-family: 'Poppins', monospace;
+    font-weight: 500;
 }
 
 #menu {
@@ -33,6 +37,11 @@
     opacity: .3;
 }
 
-#menu p {
+#menu > h1 {
+    font-weight: 600;
+    font-size: 18px;
+}
+
+#menu p, #menu h1 {
     text-align: center;
 }

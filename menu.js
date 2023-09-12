@@ -11,11 +11,6 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'r' || e.key === 'R'){
         document.removeEventListener('mousemove', onMouseMove);
         restart();
-
-        document.addEventListener('click', () => {
-            document.addEventListener('mousemove', onMouseMove);
-            ball.move = true;
-        }, {once: true});
     }
 
     if (e.key === " "){

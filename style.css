@@ -32,11 +32,6 @@
     background-color: var(--frame-color);
 }
 
-#menu::backdrop {
-    background-color: #121330;
-    opacity: .3;
-}
-
 #menu > h1 {
     font-weight: 600;
     font-size: 18px;

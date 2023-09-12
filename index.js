@@ -24,7 +24,7 @@ scene.add( axesHelper );
 // Create the ground plane
 let planeX = 20;
 let planeZ = planeX*2;
-let planeColor = "rgb(234, 219, 200)";
+let planeColor = "rgb(0, 219, 100)";
 
 // Camera
 export let orthoSize = planeZ; // Estimated size for orthographic projection
@@ -262,7 +262,7 @@ scene.add(ball.object);
 let bricksDestroyed = 0;
 const BALL_INFERIOR_LIMIT = playerSegments[0].object.position.z - player.z*3;
 const BALL_SIDE_LIMIT = leftWall.object.position.x + size.z*2;
-viewLimits();
+//viewLimits();
 function checkCollisions() {
     // Collision with the walls
     if (ball.object.position.z + ball.radius < -BALL_INFERIOR_LIMIT && ball.bb.intersectsBox(topWall.bb)){
@@ -370,10 +370,10 @@ function resetPosition(){
     ball.dx = Math.cos(playerSegments[player.center+1].angle)*planeX/100;
     ball.dz = -Math.sin(playerSegments[player.center+1].angle)*planeZ/200;
 
-    document.removeEventListener('mousemove', onMouseMove);
+    //document.removeEventListener('mousemove', onMouseMove);
     document.addEventListener('click', () => {
         menu.style.display = 'none';
-        document.addEventListener('mousemove', onMouseMove);
+        //document.addEventListener('mousemove', onMouseMove);
         ball.move = true;
     }, {once: true});
 }
@@ -419,25 +419,45 @@ controls.add("* Right button to translate");
 controls.add("* Scroll to zoom in/out");
 controls.add("Space - pause");
 controls.add("R - restart");
+controls.add("L - show limits");
 controls.add("Hover over the board to move the player");
 controls.show();
 
 /***** Utilities *****/ 
 
+let inferiorLimit;
+let center;
+let superiorLimit;
+let leftWallLimit;
+let rightWallLimit;
+
 function viewLimits(){    
-    let geometry = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX, 0, BALL_INFERIOR_LIMIT), new THREE.Vector3(planeX, 0, BALL_INFERIOR_LIMIT) ] );
-    const inferiorLimit = new THREE.Line( geometry , material );
+    let lineColor = new THREE.LineBasicMaterial({color: "#FFF"});
+
+    let geometry = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, BALL_INFERIOR_LIMIT), new THREE.Vector3(planeX/2, 0, BALL_INFERIOR_LIMIT) ] );
+    inferiorLimit = new THREE.Line( geometry , lineColor );
     scene.add(inferiorLimit);
-    let geometry2 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX, 0, 0), new THREE.Vector3(planeX, 0, 0) ] );
-    const center = new THREE.Line( geometry2, material );
+    let geometry2 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, 0), new THREE.Vector3(planeX/2, 0, 0) ] );
+    center = new THREE.Line( geometry2, lineColor );
     scene.add(center);
-    let geometry3 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX, 0, -BALL_INFERIOR_LIMIT), new THREE.Vector3(planeX, 0, -BALL_INFERIOR_LIMIT) ] );
-    const superiorLimit = new THREE.Line( geometry3 , material );
+    let geometry3 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, -BALL_INFERIOR_LIMIT), new THREE.Vector3(planeX/2, 0, -BALL_INFERIOR_LIMIT) ] );
+    superiorLimit = new THREE.Line( geometry3 , lineColor );
     scene.add(superiorLimit);
     let geometry4 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(BALL_SIDE_LIMIT, 0, planeZ/2), new THREE.Vector3(BALL_SIDE_LIMIT, 0, -planeZ/2) ] );
-    const leftWallLimit = new THREE.Line( geometry4 , material );
+    leftWallLimit = new THREE.Line( geometry4 , lineColor );
     scene.add(leftWallLimit);
     let geometry5 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-BALL_SIDE_LIMIT, 0, planeZ/2), new THREE.Vector3(-BALL_SIDE_LIMIT, 0, -planeZ/2) ] );
-    const rightWallLimit = new THREE.Line( geometry5 , material );
+    rightWallLimit = new THREE.Line( geometry5 , lineColor );
     scene.add(rightWallLimit);
+}
+
+export function showLimits(visible = true){
+    if (!inferiorLimit){
+        viewLimits();
+    }
+    inferiorLimit.visible = visible;
+    center.visible = visible;
+    superiorLimit.visible = visible;
+    leftWallLimit.visible = visible;
+    rightWallLimit.visible = visible;
 }

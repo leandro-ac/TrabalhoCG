@@ -1,10 +1,10 @@
-import { onMouseMove, ball, restart, camera, pause} from "./index.js";
+import { onMouseMove, ball, restart, pause, showLimits} from "./index.js";
 
-
+let visible = true;
+document.addEventListener('mousemove', onMouseMove);
 
 document.addEventListener('click', () => {
     menu.querySelector("h1").innerText = 'Jogo pausado';
-    document.addEventListener('mousemove', onMouseMove);
     ball.move = true;
 }, {once: true});
 
@@ -13,14 +13,17 @@ document.addEventListener('keydown', (e) => {
         restart();
     }
 
+    if (e.key === 'l' || e.key === 'L'){
+        showLimits(visible)
+        visible = !visible;
+    }
+
     if (e.key === " "){
         pause(ball.move);
     }
 
     if (e.key === "Enter"){
         toggleFullScreen();
-        camera.fov = 10;
-        console.log("🚀 ~ file: menu.js:23 ~ document.addEventListener ~ camera:", camera)
     }
 });
 

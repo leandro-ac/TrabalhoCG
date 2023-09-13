@@ -208,13 +208,13 @@ export function onMouseMove(event)
     if (intersects.length > 0) {      
         let point = intersects[0].point; // Pick the point where interception occurrs
 
-        if (point.x + PLAYER_LEFT_END < LEFT_LIMIT){
+        if (point.x + PLAYER_LEFT_END < LEFT_LIMIT){ // leftWall
             for (let i = 0; i < player.segments; i++){
                 playerSegments[i].object.position.x = i * player.x + LEFT_OFFSET;
                 playerSegments[i].bb.copy(playerSegments[i].object.geometry.boundingBox).applyMatrix4(playerSegments[i].object.matrixWorld);
                 playerSegments[i].line.position.copy(playerSegments[i].object.position);
             }
-        } else if (point.x - PLAYER_LEFT_END > -LEFT_LIMIT){
+        } else if (point.x - PLAYER_LEFT_END > -LEFT_LIMIT){ //rightWall
             for (let i = 0; i < player.segments; i++){
                 let index = player.segments-1-i;
                 playerSegments[index].object.position.x = -i * player.x - LEFT_OFFSET;
@@ -227,6 +227,11 @@ export function onMouseMove(event)
                 playerSegments[i].bb.copy(playerSegments[i].object.geometry.boundingBox).applyMatrix4(playerSegments[i].object.matrixWorld);
                 playerSegments[i].line.position.copy(playerSegments[i].object.position);
             }
+        }
+
+        if (!ball.move){
+            ball.object.position.x = playerSegments[player.center+1].object.position.x;
+            ball.bb.center.copy(ball.object.position);
         }
 
         showInterceptionCoords(point);
@@ -262,7 +267,6 @@ scene.add(ball.object);
 let bricksDestroyed = 0;
 const BALL_INFERIOR_LIMIT = playerSegments[0].object.position.z - player.z*3;
 const BALL_SIDE_LIMIT = leftWall.object.position.x + size.z*2;
-//viewLimits();
 function checkCollisions() {
     // Collision with the walls
     if (ball.object.position.z + ball.radius < -BALL_INFERIOR_LIMIT && ball.bb.intersectsBox(topWall.bb)){
@@ -270,9 +274,11 @@ function checkCollisions() {
     }
     if (ball.object.position.x - ball.radius < BALL_SIDE_LIMIT && ball.bb.intersectsBox(leftWall.bb)){
         ball.dx = -ball.dx;
+        return true;
     }
     if (ball.object.position.x + ball.radius > -BALL_SIDE_LIMIT && ball.bb.intersectsBox(rightWall.bb)){
         ball.dx = -ball.dx;
+        return true;
     }
 
     // Collsion with the player
@@ -365,15 +371,15 @@ function resetPosition(){
         playerSegments[i].bb.copy(playerSegments[i].object.geometry.boundingBox).applyMatrix4(playerSegments[i].object.matrixWorld);
         playerSegments[i].line.position.copy(playerSegments[i].object.position);
     }
-    ball.object.position.copy(initialPositions[initialPositions.length - 1]);
     ball.move = false;
+    ball.object.position.copy(initialPositions[initialPositions.length - 1]);
     ball.dx = Math.cos(playerSegments[player.center+1].angle)*planeX/100;
     ball.dz = -Math.sin(playerSegments[player.center+1].angle)*planeZ/200;
 
     //document.removeEventListener('mousemove', onMouseMove);
     document.addEventListener('click', () => {
         menu.style.display = 'none';
-        //document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mousemove', onMouseMove);
         ball.move = true;
     }, {once: true});
 }
@@ -425,6 +431,7 @@ controls.show();
 
 /***** Utilities *****/ 
 
+let visible = true;
 let inferiorLimit;
 let center;
 let superiorLimit;
@@ -451,7 +458,7 @@ function viewLimits(){
     scene.add(rightWallLimit);
 }
 
-export function showLimits(visible = true){
+export function showLimits(){
     if (!inferiorLimit){
         viewLimits();
     }
@@ -460,4 +467,5 @@ export function showLimits(visible = true){
     superiorLimit.visible = visible;
     leftWallLimit.visible = visible;
     rightWallLimit.visible = visible;
+    visible = !visible;
 }

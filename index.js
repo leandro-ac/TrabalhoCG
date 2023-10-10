@@ -7,6 +7,7 @@ import {initRenderer,
         SecondaryBox,
         onWindowResize,
         createGroundPlaneXZ} from "../libs/util/util.js";
+import { MeshPhongMaterial } from '../build/three.module.js';
 
 let scene, renderer, material, light, orbit;; // Initial variables
 scene = new THREE.Scene();    // Create main scene
@@ -19,7 +20,7 @@ window.addEventListener( 'resize', function(){onWindowResize(camera, renderer, o
 
 // Show axes (parameter is size of each axis)
 let axesHelper = new THREE.AxesHelper( 12 );
-scene.add( axesHelper );
+//scene.add( axesHelper );
 
 // Create the ground plane
 let planeX = 20;
@@ -36,28 +37,35 @@ let far = 1000;
 let position = new THREE.Vector3(0,  50, 0);
 let lookat   = new THREE.Vector3(0,  0,  0);
 let up       = new THREE.Vector3(0,  1,  0);
-export let camera = new THREE.OrthographicCamera(-orthoSize * aspect / 2, orthoSize * aspect / 2, // left, right
+
+/*export let camera = new THREE.OrthographicCamera(-orthoSize * aspect / 2, orthoSize * aspect / 2, // left, right
                                                 orthoSize / 2 , -orthoSize / 2,                  // top, bottom
-                                                near, far);              
+                                                near, far); 
+                                                */             
+ // Enable mouse rotation, pan, zoom etc.let
+
+
+const camera = new THREE.PerspectiveCamera (45, w / h, near, far);
+
 camera.position.copy(position);
 camera.up.copy(up);
 camera.lookAt(lookat);
 scene.add( camera );
-orbit = new OrbitControls( camera, renderer.domElement ); // Enable mouse rotation, pan, zoom etc.let
+orbit = new OrbitControls( camera, renderer.domElement );
 
 //LIGHT
 let dirLight = new THREE.DirectionalLight("0xffffff", 0.8);
-    dirLight.position.copy(camera.position);
-    //dirLight.translateZ(-7);
+    dirLight.position.copy(new THREE.Vector3(0, 10, 0));
+    dirLight.translateZ(-7);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 256;
     dirLight.shadow.mapSize.height = 256;
     dirLight.shadow.camera.near = 0.1;
-    dirLight.shadow.camera.far = camera.position.y * 1.2;
-    dirLight.shadow.camera.left = -planeX/2;
-    dirLight.shadow.camera.right = planeX/2;
-    dirLight.shadow.camera.bottom = -planeX/2;
-    dirLight.shadow.camera.top = planeX/2;
+    dirLight.shadow.camera.far = 10;
+    dirLight.shadow.camera.left = -planeX;
+    dirLight.shadow.camera.right = planeX;
+    dirLight.shadow.camera.bottom = -planeZ + 5;
+    dirLight.shadow.camera.top = planeZ + 5;
 scene.add(dirLight);
 
 renderer.shadowMap.enabled = true;
@@ -85,6 +93,7 @@ let topWall = {
 }
 topWall.object.position.set(0, size.positionY, -planeZ/2 + size.z/2);
 topWall.bb.setFromObject(topWall.object);
+topWall.object.castShadow = true;
 
 // SIDE BORDERS
 brickGeometry = new THREE.BoxGeometry(size.z, size.y, planeZ);
@@ -190,6 +199,7 @@ for(let i = 0; i < player.segments; i++){
     playerSegments[i] = {};
     playerSegments[i].object = new THREE.Mesh(brickGeometry, new THREE.LineBasicMaterial({color: "#555"}));
     playerSegments[i].object.position.set(-player.center*player.x + i*player.x   ,  size.positionY   , planeZ/2 - size.z);
+    playerSegments[i].object.castShadow = true;
 
     playerSegments[i].bb = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(playerSegments[i].object);
     playerSegments[i].angle = Math.PI - (Math.PI/(player.segments + 1)*(i + 1));
@@ -209,7 +219,7 @@ let raycaster = new THREE.Raycaster();
 raycaster.layers.enable( 0 );
 camera.layers.enable( 0 );
 
-let raycasterPlane = createGroundPlaneXZ(planeX, planeZ, 10, 10, planeColor);
+let raycasterPlane = createGroundPlaneXZ(planeX, planeZ+size.z, 10, 10, planeColor);
 raycasterPlane.layers.set(0);
 raycasterPlane.receiveShadow = true;
 scene.add(raycasterPlane);
@@ -273,13 +283,14 @@ export let ball = {
     radius: player.z/3,
     object: null,
     bb: null,
+    material: new MeshPhongMaterial({color: 0x0045aa}),
     dx: Math.cos(playerSegments[player.center+1].angle)*planeX/100,
     dz: -Math.sin(playerSegments[player.center+1].angle)*planeZ/200,
     move: false
 }
 
 let sphereGeometry = new THREE.SphereGeometry(ball.radius);
-ball.object = new THREE.Mesh(sphereGeometry, material);
+ball.object = new THREE.Mesh(sphereGeometry, ball.material);
 ball.object.position.copy(playerSegments[player.center + 1].object.position); // Initial position
 ball.object.translateZ(-player.z);
 initialPositions.push(new THREE.Vector3().copy(ball.object.position));

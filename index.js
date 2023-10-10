@@ -12,7 +12,7 @@ let scene, renderer, material, light, orbit;; // Initial variables
 scene = new THREE.Scene();    // Create main scene
 renderer = initRenderer();    // Init a basic renderer
 material = setDefaultMaterial(); // create a basic material
-light = initDefaultBasicLight(scene); // Create a basic light to illuminate the scene
+//light = initDefaultBasicLight(scene); // Create a basic light to illuminate the scene
 
 // Listen window size changes
 window.addEventListener( 'resize', function(){onWindowResize(camera, renderer, orthoSize)}, false );
@@ -43,7 +43,26 @@ camera.position.copy(position);
 camera.up.copy(up);
 camera.lookAt(lookat);
 scene.add( camera );
-orbit = new OrbitControls( camera, renderer.domElement ); // Enable mouse rotation, pan, zoom etc.
+orbit = new OrbitControls( camera, renderer.domElement ); // Enable mouse rotation, pan, zoom etc.let
+
+//LIGHT
+let dirLight = new THREE.DirectionalLight("0xffffff", 0.8);
+    dirLight.position.copy(camera.position);
+    //dirLight.translateZ(-7);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 256;
+    dirLight.shadow.mapSize.height = 256;
+    dirLight.shadow.camera.near = 0.1;
+    dirLight.shadow.camera.far = camera.position.y * 1.2;
+    dirLight.shadow.camera.left = -planeX/2;
+    dirLight.shadow.camera.right = planeX/2;
+    dirLight.shadow.camera.bottom = -planeX/2;
+    dirLight.shadow.camera.top = planeX/2;
+scene.add(dirLight);
+
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+
 
 let bricksAmount = 10;
 const borderColor = "#FF3FA4";
@@ -52,6 +71,7 @@ let size = {
     x: planeX/bricksAmount,
     y: 1,
     z: planeZ/30,
+    positionY: 1.5,
     material: new THREE.MeshLambertMaterial({color: color}),
     borderMaterial: new THREE.MeshLambertMaterial({color: borderColor})
 }
@@ -63,7 +83,7 @@ let topWall = {
     object: new THREE.Mesh(brickGeometry, size.borderMaterial),
     bb: new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()),
 }
-topWall.object.position.set(0, size.y/2, -planeZ/2 + size.z/2);
+topWall.object.position.set(0, size.positionY, -planeZ/2 + size.z/2);
 topWall.bb.setFromObject(topWall.object);
 
 // SIDE BORDERS
@@ -73,14 +93,14 @@ let leftWall = {
     object: new THREE.Mesh(brickGeometry, size.borderMaterial),
     bb: new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()),
 }
-leftWall.object.position.set(-planeX/2, size.y/2, 0)
+leftWall.object.position.set(-planeX/2, size.positionY, 0)
 leftWall.bb.setFromObject(leftWall.object);
 
 let rightWall = {
     object: new THREE.Mesh(brickGeometry, size.borderMaterial),
     bb: new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()),
 }
-rightWall.object.position.set(planeX/2, size.y/2, 0)
+rightWall.object.position.set(planeX/2, size.positionY, 0)
 rightWall.bb.setFromObject(rightWall.object);
 
 scene.add(topWall.object, leftWall.object, rightWall.object);
@@ -97,10 +117,11 @@ for(let i = 0; i < 5; i++){
     for(let j = 0; j < 10; j++){
         bricks[i][j] = {};
         let brick = new THREE.Mesh(brickGeometry, size.material);
-        brick.position.set(j*bricksX + bricksOffset,    size.y/2,   i*size.z - planeZ/4);
+        brick.position.set(j*bricksX + bricksOffset,    size.positionY,   i*size.z - planeZ/4);
         // add brick border
         const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color: "#38E54D"})); 
         line.position.copy(brick.position);
+        brick.castShadow = true;
         scene.add(brick, line);
 
         bricks[i][j].object = brick;
@@ -168,7 +189,7 @@ const initialPositions = [];
 for(let i = 0; i < player.segments; i++){
     playerSegments[i] = {};
     playerSegments[i].object = new THREE.Mesh(brickGeometry, new THREE.LineBasicMaterial({color: "#555"}));
-    playerSegments[i].object.position.set(-player.center*player.x + i*player.x   ,  player.y/2   , planeZ/2 - size.z);
+    playerSegments[i].object.position.set(-player.center*player.x + i*player.x   ,  size.positionY   , planeZ/2 - size.z);
 
     playerSegments[i].bb = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(playerSegments[i].object);
     playerSegments[i].angle = Math.PI - (Math.PI/(player.segments + 1)*(i + 1));
@@ -190,6 +211,7 @@ camera.layers.enable( 0 );
 
 let raycasterPlane = createGroundPlaneXZ(planeX, planeZ, 10, 10, planeColor);
 raycasterPlane.layers.set(0);
+raycasterPlane.receiveShadow = true;
 scene.add(raycasterPlane);
 
 const LEFT_OFFSET = -planeX/2 + player.x/2 + size.z/2; // RIGHT_OFFSET = -LEFT_OFFSET

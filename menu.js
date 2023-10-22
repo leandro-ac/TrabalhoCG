@@ -1,12 +1,6 @@
-import { onMouseMove, ball, restart, pause, showLimits} from "./index.js";
+import { onMouseMove, ball, restart, pause, showLimits, nextLevel} from "./index.js";
 
 let visible = true;
-document.addEventListener('mousemove', onMouseMove);
-
-document.addEventListener('click', () => {
-    menu.querySelector("h1").innerText = 'Jogo pausado';
-    ball.move = true;
-}, {once: true});
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'r' || e.key === 'R'){
@@ -16,6 +10,10 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'l' || e.key === 'L'){
         showLimits(visible)
         visible = !visible;
+    }
+
+    if (e.key === 'g' || e.key === 'G'){
+        nextLevel()
     }
 
     if (e.key === " "){

@@ -40,11 +40,8 @@ let up       = new THREE.Vector3(0,  1,  0);
 
 /*export let camera = new THREE.OrthographicCamera(-orthoSize * aspect / 2, orthoSize * aspect / 2, // left, right
                                                 orthoSize / 2 , -orthoSize / 2,                  // top, bottom
-                                                near, far); 
-                                                */             
- // Enable mouse rotation, pan, zoom etc.let
-
-
+                                                near, far); */
+                                                       
 const camera = new THREE.PerspectiveCamera (45, w / h, near, far);
 
 camera.position.copy(position);
@@ -53,34 +50,35 @@ camera.lookAt(lookat);
 scene.add( camera );
 orbit = new OrbitControls( camera, renderer.domElement );
 
-//LIGHT
-let dirLight = new THREE.DirectionalLight("0xffffff", 0.8);
-    dirLight.position.copy(new THREE.Vector3(0, 10, 0));
-    dirLight.translateZ(-7);
+// LIGHT
+let dirLight = new THREE.DirectionalLight( 0xffffff , 0.4 );
+    dirLight.position.copy(camera.position);
+    dirLight.translateZ(-7)
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 256;
     dirLight.shadow.mapSize.height = 256;
     dirLight.shadow.camera.near = 0.1;
-    dirLight.shadow.camera.far = 10;
-    dirLight.shadow.camera.left = -planeX;
-    dirLight.shadow.camera.right = planeX;
-    dirLight.shadow.camera.bottom = -planeZ + 5;
-    dirLight.shadow.camera.top = planeZ + 5;
-scene.add(dirLight);
+    dirLight.shadow.camera.far = camera.position.y * 1.1
+    dirLight.shadow.camera.left = -planeX/2;
+    dirLight.shadow.camera.right = planeX/2
+    dirLight.shadow.camera.bottom = -planeZ/2
+    dirLight.shadow.camera.top = planeZ/2;
 
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.VSMShadowMap;
+let ambientLight = new THREE.AmbientLight( 0xffffff, 0.35);
 
+scene.add(dirLight, ambientLight);
 
 let bricksAmount = 10;
+let rowsAmount = 6;
+let level = 1;
 const borderColor = "#FF3FA4";
-const color = "#4EF037";
+const colors = ["bcbcbc", "d82800", "0070ec", "fc9838", "fc74B4", "80d010"];
 let size = {
     x: planeX/bricksAmount,
-    y: 1,
-    z: planeZ/30,
+    y: planeX/20,
+    z: planeZ/40,
     positionY: 1.5,
-    material: new THREE.MeshLambertMaterial({color: color}),
+    material: colors.map(color => new THREE.MeshLambertMaterial({color: "#" + color})),
     borderMaterial: new THREE.MeshLambertMaterial({color: borderColor})
 }
 
@@ -96,7 +94,7 @@ topWall.bb.setFromObject(topWall.object);
 topWall.object.castShadow = true;
 
 // SIDE BORDERS
-brickGeometry = new THREE.BoxGeometry(size.z, size.y, planeZ);
+brickGeometry = new THREE.BoxGeometry(size.z, size.y , planeZ);
 
 let leftWall = {
     object: new THREE.Mesh(brickGeometry, size.borderMaterial),
@@ -104,6 +102,7 @@ let leftWall = {
 }
 leftWall.object.position.set(-planeX/2, size.positionY, 0)
 leftWall.bb.setFromObject(leftWall.object);
+leftWall.object.castShadow = true;
 
 let rightWall = {
     object: new THREE.Mesh(brickGeometry, size.borderMaterial),
@@ -111,39 +110,44 @@ let rightWall = {
 }
 rightWall.object.position.set(planeX/2, size.positionY, 0)
 rightWall.bb.setFromObject(rightWall.object);
+rightWall.object.castShadow = true;
 
 scene.add(topWall.object, leftWall.object, rightWall.object);
 
 // BRICKS
-let bricksX = (planeX-size.z)/10;
+let bricksX = (planeX-size.z)/bricksAmount;
 let bricksOffset = - planeX/2 + bricksX/2 + size.z/2;
-let bricks = new Array(5);
+let bricks = new Array(rowsAmount);
 brickGeometry = new THREE.BoxGeometry(bricksX - 0.1, size.y, size.z - 0.1);
 let edges = new THREE.EdgesGeometry(brickGeometry); 
 
-for(let i = 0; i < 5; i++){
-    bricks[i] = new Array(10);
-    for(let j = 0; j < 10; j++){
+for(let i = 0; i < rowsAmount; i++){
+    bricks[i] = new Array(bricksAmount);
+    //size.material = new THREE.MeshLambertMaterial({color: "#" + colors[i]});
+    for(let j = 0; j < bricksAmount; j++){
         bricks[i][j] = {};
-        let brick = new THREE.Mesh(brickGeometry, size.material);
+        let brick = new THREE.Mesh(brickGeometry, size.material[i%colors.length]);
         brick.position.set(j*bricksX + bricksOffset,    size.positionY,   i*size.z - planeZ/4);
         // add brick border
-        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color: "#38E54D"})); 
-        line.position.copy(brick.position);
+        // const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color: "#38E54D"})); 
+        // line.position.copy(brick.position);
         brick.castShadow = true;
-        scene.add(brick, line);
+        
+        scene.add(brick);
 
         bricks[i][j].object = brick;
-        bricks[i][j].line = line;
+        //bricks[i][j].line = line;
         bricks[i][j].bb = new Array(9);
+        bricks[i][j].hits = 0;
         createBrickBoundingBoxes(bricks[i][j].bb, bricks[i][j].object);
     }
 }
 
 function createBrickBoundingBoxes(brickBB, object){
+    // Create nine bounding box using auxBrick which is an auxiliar mesh that helps with the positioning
     let cornerSize = 0.2;
     let geometry = new THREE.BoxGeometry((bricksX - 0.2 - cornerSize*2), size.y, cornerSize);
-    let auxBrick = new THREE.Mesh(geometry, size.material);
+    let auxBrick = new THREE.Mesh(geometry, size.material[0]);
 
     auxBrick.position.set(object.position.x, object.position.y, object.position.z + size.z/2 - 0.1);
     let topBB = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
@@ -153,21 +157,21 @@ function createBrickBoundingBoxes(brickBB, object){
     let sideGeometry = new THREE.BoxGeometry(cornerSize, size.y, size.z - 0.1 - cornerSize*2);
     auxBrick.geometry = sideGeometry;
 
-    auxBrick.position.set(object.position.x - size.x/2 + size.x/10, object.position.y, object.position.z);
+    auxBrick.position.set(object.position.x - size.x/2 + size.x/bricksAmount, object.position.y, object.position.z);
     let leftBB = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
-    auxBrick.position.set(object.position.x + size.x/2 - size.x/10, object.position.y, object.position.z);
+    auxBrick.position.set(object.position.x + size.x/2 - size.x/bricksAmount, object.position.y, object.position.z);
     let rightBB = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
 
     let cornerGeometry = new THREE.BoxGeometry(cornerSize, size.y, cornerSize);
     auxBrick.geometry = cornerGeometry;
 
-    auxBrick.position.set(object.position.x - size.x/2 + size.x/10, object.position.y, object.position.z - size.z/2 + 0.1);
+    auxBrick.position.set(object.position.x - size.x/2 + size.x/bricksAmount, object.position.y, object.position.z - size.z/2 + 0.1);
     let topLeftCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
-    auxBrick.position.set(object.position.x + size.x/2 - size.x/10, object.position.y, object.position.z - size.z/2 + 0.1);
+    auxBrick.position.set(object.position.x + size.x/2 - size.x/bricksAmount, object.position.y, object.position.z - size.z/2 + 0.1);
     let topRightCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
-    auxBrick.position.set(object.position.x - size.x/2 + size.x/10, object.position.y, object.position.z + size.z/2 - 0.1);
+    auxBrick.position.set(object.position.x - size.x/2 + size.x/bricksAmount, object.position.y, object.position.z + size.z/2 - 0.1);
     let bottomLeftCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
-    auxBrick.position.set(object.position.x + size.x/2 - size.x/10, object.position.y, object.position.z + size.z/2 - 0.1);
+    auxBrick.position.set(object.position.x + size.x/2 - size.x/bricksAmount, object.position.y, object.position.z + size.z/2 - 0.1);
     let bottomRightCorner = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(auxBrick);
 
     brickBB[0] = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(object);
@@ -212,17 +216,26 @@ for(let i = 0; i < player.segments; i++){
 
 // Raycaster
 let leftBox = new SecondaryBox("");
-leftBox.changeMessage("Intersection on Layer ");
+leftBox.changeMessage("Ball speed: 1");
 let raycaster = new THREE.Raycaster();
 
 // Enable layers to raycaster and camera (layer 0 is enabled by default)
 raycaster.layers.enable( 0 );
 camera.layers.enable( 0 );
 
-let raycasterPlane = createGroundPlaneXZ(planeX, planeZ+size.z, 10, 10, planeColor);
+let raycasterPlane = createGroundPlaneXZ(planeX, planeZ, 10, 10, planeColor);
 raycasterPlane.layers.set(0);
 raycasterPlane.receiveShadow = true;
 scene.add(raycasterPlane);
+
+let startTime;
+
+document.addEventListener('click', () => {
+    menu.querySelector("h1").innerText = 'Jogo pausado';
+    document.addEventListener('mousemove', onMouseMove);
+    ball.move = true;
+    startTime = Date.now();
+}, {once: true});
 
 const LEFT_OFFSET = -planeX/2 + player.x/2 + size.z/2; // RIGHT_OFFSET = -LEFT_OFFSET
 const LEFT_LIMIT = -planeX/2 + size.z/2; // RIGHT_LIMIT = -LEFT_LIMIT
@@ -265,17 +278,16 @@ export function onMouseMove(event)
             ball.object.position.x = playerSegments[player.center+1].object.position.x;
             ball.bb.center.copy(ball.object.position);
         }
-
-        showInterceptionCoords(point);
     }   
 };
 
 function showInterceptionCoords(point)
 {
-   leftBox.changeMessage("Intersection on Layer " + "  [" +  
-       point.x.toFixed(2) + ", " +
-       point.y.toFixed(2) + ", " + 
-       point.z.toFixed(2) + "]"); 
+//    leftBox.changeMessage("Intersection on Layer " + "  [" +  
+//        point.x.toFixed(2) + ", " +
+//        point.y.toFixed(2) + ", " + 
+//        point.z.toFixed(2) + "]"
+    leftBox.changeMessage("Ball speed: " + ball.speedMultiplier.toFixed(2)); 
 }
 
 // Create ball
@@ -286,6 +298,9 @@ export let ball = {
     material: new MeshPhongMaterial({color: 0x0045aa}),
     dx: Math.cos(playerSegments[player.center+1].angle)*planeX/100,
     dz: -Math.sin(playerSegments[player.center+1].angle)*planeZ/200,
+    initialDx: Math.cos(playerSegments[player.center+1].angle)*planeX/100,
+    initialDz: -Math.sin(playerSegments[player.center+1].angle)*planeZ/200,
+    speedMultiplier: 1,
     move: false
 }
 
@@ -299,9 +314,10 @@ scene.add(ball.object);
 
 let bricksDestroyed = 0;
 const BALL_INFERIOR_LIMIT = playerSegments[0].object.position.z - player.z*3;
-const BALL_SIDE_LIMIT = leftWall.object.position.x + size.z*2;
+const BALL_SIDE_LIMIT = leftWall.object.position.x + size.x;
+let BALL_BRICK_LIMIT = bricks[rowsAmount-1][bricksAmount-1].object.position.z + size.z*2;
 function checkCollisions() {
-    // Collision with the walls
+    // Collision with the wallsl
     if (ball.object.position.z + ball.radius < -BALL_INFERIOR_LIMIT && ball.bb.intersectsBox(topWall.bb)){
         ball.dz = -ball.dz;
     }
@@ -327,9 +343,9 @@ function checkCollisions() {
     }
     
     // Collision with the bricks
-    if (ball.object.position.z - ball.radius < 0){
-        for (let i = 0; i < 5; i++){
-            for (let j = 0; j < 10; j++){
+    if (ball.object.position.z - ball.radius < BALL_BRICK_LIMIT){
+        for (let i = 0; i < rowsAmount; i++){
+            for (let j = 0; j < bricksAmount; j++){
                 if (bricks[i][j].bb && ball.bb.intersectsBox(bricks[i][j].bb[0])){
                     if (ball.bb.intersectsBox(bricks[i][j].bb[1])){
                         ball.dz = Math.abs(ball.dz);
@@ -353,8 +369,13 @@ function checkCollisions() {
                         ball.dz = Math.abs(ball.dz);
                     }
 
+                    // If the brick has gray color and wasn't hit yet then increment brick.hits 
+                    bricks[i][j].hits++;
+                    if (bricks[i][j].object.material.color.getHexString() === colors[0] && bricks[i][j].hits < 2)
+                        continue;
+
                     bricks[i][j].object.visible = false;
-                    bricks[i][j].line.visible = false;
+                    //bricks[i][j].line.visible = false;
                     bricks[i][j].bb[0].makeEmpty();
                     bricksDestroyed++;
                     return true;
@@ -368,12 +389,25 @@ function checkCollisions() {
         resetPosition();
         menu.style.display = 'block';
         //menu.querySelector("h1").innerText = 'Você perdeu.';
+        ball.speedMultiplier = 1;
+        startTime = Date.now();
     }
 }
 
+let currentTime;
+let elapsedTime;
 function moveBall(){
-    ball.object.position.x += ball.dx;
-    ball.object.position.z += ball.dz;
+    if (ball.speedMultiplier < 2){
+        currentTime = Date.now();
+        elapsedTime = currentTime - startTime;
+        ball.speedMultiplier = 1 + (elapsedTime / 15000); // Equivalence ratio for double the velocity in 15s (15000 ms)
+        showInterceptionCoords();
+    } else {
+        ball.speedMultiplier = 2;
+    }
+   
+    ball.object.position.x += ball.dx * Math.pow(ball.speedMultiplier, 1/2);
+    ball.object.position.z += ball.dz * Math.pow(ball.speedMultiplier, 1/2);
     ball.bb.center.copy(ball.object.position);
 }
 
@@ -385,8 +419,12 @@ function render()
         checkCollisions();
         moveBall();
         checkCollisions();
-        if (bricksDestroyed === 50){
-            end();
+        if (bricksDestroyed === bricksAmount * rowsAmount){
+            if (level == 2){
+                end()
+            } else {
+                nextLevel();
+            }
         }
     }
     
@@ -396,7 +434,13 @@ function render()
 
 /***** OTHERS *****/
 
-const menu = document.getElementById('menu');
+export const menu = document.getElementById('menu');
+let visible = true;
+let inferiorLimit;
+let center;
+let superiorLimit;
+let leftWallLimit;
+let rightWallLimit;
 
 function resetPosition(){
     for (let i = 0; i < playerSegments.length; i++){
@@ -418,33 +462,79 @@ function resetPosition(){
 }
 
 export function restart(){
-    for (let i = 0; i < 5; i++){
-        for (let j = 0; j < 10; j++){
+    for (let i = 0; i < rowsAmount; i++){
+        for (let j = 0; j < bricksAmount; j++){
+            if (!bricks[i][j].object) continue;
             bricks[i][j].object.visible = true;
-            bricks[i][j].line.visible = true;
+            //bricks[i][j].line.visible = true;
             bricks[i][j].bb[0].copy(bricks[i][j].object.geometry.boundingBox).applyMatrix4(bricks[i][j].object.matrixWorld);;
         }
     }
     resetPosition();
     bricksDestroyed = 0;
     menu.querySelector("h1").innerText = 'Jogo pausado';
+    ball.speedMultiplier = 1;
+    startTime = Date.now();
 }
 
+let startPauseTime;
 export function pause(pause){
     if (pause){
+        startPauseTime = Date.now();
         menu.style.display = 'block';
         ball.move = false;
         document.removeEventListener('mousemove', onMouseMove);
-    } else { // unpause
+    } else { // unpause   
         menu.style.display = 'none';
         ball.move = true;
         document.addEventListener('mousemove', onMouseMove);
+        startTime += Date.now() - startPauseTime;
     }
 }
 
 function end(){
     pause(true);
     menu.querySelector("h1").innerText = 'Você venceu!';
+}
+
+export function nextLevel(){
+    resetPosition();
+    // Remove remaining blocks
+    if (bricksDestroyed < bricksAmount * rowsAmount)
+        for (let i = 0; i < rowsAmount; i++){
+            for (let j = 0; j < bricksAmount; j++){
+                scene.remove(bricks[i][j].object );
+            }
+        }
+    bricksAmount = 9;
+    rowsAmount = 14;
+    bricksOffset = - planeX/2 + bricksX/2 + size.z/2 + bricksX/2; // Add offset of half brick at each border
+    brickGeometry = new THREE.BoxGeometry(bricksX - 0.1, size.y, size.z - 0.1);
+    bricks = new Array(rowsAmount);
+
+    for(let i = 0; i < rowsAmount; i++){
+        bricks[i] = new Array(bricksAmount);
+        for(let j = 0; j < bricksAmount; j++){
+            bricks[i][j] = {};
+            if (j == Math.floor(bricksAmount/2)) continue; // central spacing
+
+            let brick = new THREE.Mesh(brickGeometry, size.material[(i+j)%colors.length]);
+            brick.position.set(j*bricksX + bricksOffset,    size.positionY,   i*size.z - planeZ/4);
+            brick.castShadow = true;
+            
+            scene.add(brick);
+    
+            bricks[i][j].object = brick;
+            bricks[i][j].bb = new Array(9);
+            bricks[i][j].hits = 0;
+            createBrickBoundingBoxes(bricks[i][j].bb, bricks[i][j].object);
+        }
+    }
+    BALL_BRICK_LIMIT = bricks[rowsAmount-1][bricksAmount-1].object.position.z + size.z*2;
+    // Update limit when checking for collisions with bricks
+    if (center)
+        center.geometry = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, BALL_BRICK_LIMIT), new THREE.Vector3(planeX/2, 0, BALL_BRICK_LIMIT) ] );
+
 }
 
 // Show information onscreen
@@ -458,18 +548,12 @@ controls.add("* Right button to translate");
 controls.add("* Scroll to zoom in/out");
 controls.add("Space - pause");
 controls.add("R - restart");
+controls.add("G - next level");
 controls.add("L - show limits");
 controls.add("Hover over the board to move the player");
 controls.show();
 
 /***** Utilities *****/ 
-
-let visible = true;
-let inferiorLimit;
-let center;
-let superiorLimit;
-let leftWallLimit;
-let rightWallLimit;
 
 function viewLimits(){    
     let lineColor = new THREE.LineBasicMaterial({color: "#FFF"});
@@ -477,7 +561,7 @@ function viewLimits(){
     let geometry = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, BALL_INFERIOR_LIMIT), new THREE.Vector3(planeX/2, 0, BALL_INFERIOR_LIMIT) ] );
     inferiorLimit = new THREE.Line( geometry , lineColor );
     scene.add(inferiorLimit);
-    let geometry2 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, 0), new THREE.Vector3(planeX/2, 0, 0) ] );
+    let geometry2 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, BALL_BRICK_LIMIT), new THREE.Vector3(planeX/2, 0, BALL_BRICK_LIMIT) ] );
     center = new THREE.Line( geometry2, lineColor );
     scene.add(center);
     let geometry3 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, -BALL_INFERIOR_LIMIT), new THREE.Vector3(planeX/2, 0, -BALL_INFERIOR_LIMIT) ] );

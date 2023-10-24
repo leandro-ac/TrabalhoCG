@@ -13,7 +13,6 @@ let scene, renderer, material, light, orbit;; // Initial variables
 scene = new THREE.Scene();    // Create main scene
 renderer = initRenderer();    // Init a basic renderer
 material = setDefaultMaterial(); // create a basic material
-//light = initDefaultBasicLight(scene); // Create a basic light to illuminate the scene
 
 // Listen window size changes
 window.addEventListener( 'resize', function(){onWindowResize(camera, renderer, orthoSize)}, false );
@@ -38,15 +37,10 @@ let position = new THREE.Vector3(0,  50, 0);
 let lookat   = new THREE.Vector3(0,  0,  0);
 let up       = new THREE.Vector3(0,  1,  0);
 
-/*export let camera = new THREE.OrthographicCamera(-orthoSize * aspect / 2, orthoSize * aspect / 2, // left, right
-                                                orthoSize / 2 , -orthoSize / 2,                  // top, bottom
-                                                near, far); */
-                                                       
 const camera = new THREE.PerspectiveCamera (45, w / h, near, far);
-
-camera.position.copy(position);
-camera.up.copy(up);
-camera.lookAt(lookat);
+    camera.position.copy(position);
+    camera.up.copy(up);
+    camera.lookAt(lookat);
 scene.add( camera );
 orbit = new OrbitControls( camera, renderer.domElement );
 
@@ -123,14 +117,10 @@ let edges = new THREE.EdgesGeometry(brickGeometry);
 
 for(let i = 0; i < rowsAmount; i++){
     bricks[i] = new Array(bricksAmount);
-    //size.material = new THREE.MeshLambertMaterial({color: "#" + colors[i]});
     for(let j = 0; j < bricksAmount; j++){
         bricks[i][j] = {};
-        let brick = new THREE.Mesh(brickGeometry, size.material[i%colors.length]);
+        let brick = new THREE.Mesh(brickGeometry, new THREE.MeshLambertMaterial({color: "#"+colors[i%colors.length]}));
         brick.position.set(j*bricksX + bricksOffset,    size.positionY,   i*size.z - planeZ/4);
-        // add brick border
-        // const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color: "#38E54D"})); 
-        // line.position.copy(brick.position);
         brick.castShadow = true;
         
         scene.add(brick);
@@ -281,44 +271,97 @@ export function onMouseMove(event)
     }   
 };
 
-function showInterceptionCoords(point)
-{
-//    leftBox.changeMessage("Intersection on Layer " + "  [" +  
-//        point.x.toFixed(2) + ", " +
-//        point.y.toFixed(2) + ", " + 
-//        point.z.toFixed(2) + "]"
-    leftBox.changeMessage("Ball speed: " + ball.speedMultiplier.toFixed(2)); 
+function showInterceptionCoords(){
+    leftBox.changeMessage("Ball speed: " + speedMultiplier.toFixed(2)); 
 }
 
 // Create ball
-export let ball = {
-    radius: player.z/3,
-    object: null,
-    bb: null,
-    material: new MeshPhongMaterial({color: 0x0045aa}),
-    dx: Math.cos(playerSegments[player.center+1].angle)*planeX/100,
-    dz: -Math.sin(playerSegments[player.center+1].angle)*planeZ/200,
-    initialDx: Math.cos(playerSegments[player.center+1].angle)*planeX/100,
-    initialDz: -Math.sin(playerSegments[player.center+1].angle)*planeZ/200,
-    speedMultiplier: 1,
-    move: false
+let speedMultiplier = 1;
+let angleRotationMatrix = new THREE.Matrix3();
+    
+let angleRotationMatrix2 = new THREE.Matrix3();
+    angleRotationMatrix2.makeRotation(-Math.PI/12)
+class Ball {
+    constructor(radius){
+        this.radius = radius;
+        this.speedConstant = planeX/200;
+        this.material = new MeshPhongMaterial({color : 0x0045aa});
+        this.object = new THREE.Mesh(new THREE.SphereGeometry(radius), this.material);
+        this.bb = new THREE.Sphere(this.object.position, radius);
+        this.angle = Math.PI / 2;
+        this.dx = Math.cos(this.angle) * this.speedConstant;
+        this.dz = -Math.sin(this.angle) * this.speedConstant;
+        this.initialDx = Math.cos(this.angle) * this.speedConstant;
+        this.initialDz = -Math.sin(this.angle) * this.speedConstant;
+        
+        this.move = false
+        
+        // angleRotationMatrix.makeRotation(ballDirection.angle() + Math.PI/12)
+        // console.log("🚀 ~ file: index.js:303 ~ Ball ~ ballDirection:", ballDirection)
+        // ballDirection.applyMatrix3(angleRotationMatrix);
+        // console.log("🚀 ~ file: index.js:315 ~ Ball ~ ballDirection:", ballDirection)
+    }
+
+    setAngle = function(angle){
+        return {
+            angle: this.angle,
+            dx: this.dx,
+            dz: this.dz
+        }
+    }
 }
 
-let sphereGeometry = new THREE.SphereGeometry(ball.radius);
-ball.object = new THREE.Mesh(sphereGeometry, ball.material);
+function splitBall(){
+    let angle = new THREE.Vector2(ball.dx, ball.dz).angle();
+    ball.dx = Math.cos(angle + Math.PI/12) * ball.speedConstant;
+    ball.dz = Math.sin(angle + Math.PI/12) * ball.speedConstant;
+    secondaryBall.dx = Math.cos(angle - Math.PI/12) * secondaryBall.speedConstant;
+    secondaryBall.dz = Math.sin(angle - Math.PI/12) * secondaryBall.speedConstant;
+}
+
+function duplicate(){
+    let auxBall = !secondaryBall.object.visible ? secondaryBall : ball;
+    if (!auxBall.object.visible){
+        auxBall.object.position.copy(ball.object.position);
+        splitBall()
+        auxBall.object.visible = auxBall.move = true;
+        numBalls++;
+    }
+}
+
+export let ball = new Ball(player.z/2.5);
 ball.object.position.copy(playerSegments[player.center + 1].object.position); // Initial position
 ball.object.translateZ(-player.z);
 initialPositions.push(new THREE.Vector3().copy(ball.object.position));
-ball.bb = new THREE.Sphere(ball.object.position, ball.radius)
 scene.add(ball.object);
 
-let bricksDestroyed = 0;
+let secondaryBall = new Ball(ball.radius);
+secondaryBall.object.visible = false;
+scene.add(secondaryBall.object)
+let numBalls = 1;
+
+// Create powerUp
+const powerUpGeometry = new THREE.TorusGeometry( 0.3, 0.15, 16, 100 ); 
+const powerUpMaterial = new THREE.MeshPhongMaterial({
+    color: 0xFFFF00,
+    shininess: 100,
+    specular: 0x333333
+}); 
+const torus = new THREE.Mesh( powerUpGeometry, powerUpMaterial );
+    torus.rotateOnAxis(new THREE.Vector3( 1, 0, 0), THREE.MathUtils.degToRad(90))
+    torus.visible = false;
+    torus.speed = -ball.initialDz/3;
+let powerUpCounter = 0;
+scene.add( torus );
+
+// Collisions detection 
+let bricksLeft = rowsAmount * bricksAmount;
 const BALL_INFERIOR_LIMIT = playerSegments[0].object.position.z - player.z*3;
 const BALL_SIDE_LIMIT = leftWall.object.position.x + size.x;
 let BALL_BRICK_LIMIT = bricks[rowsAmount-1][bricksAmount-1].object.position.z + size.z*2;
-function checkCollisions() {
-    // Collision with the wallsl
-    if (ball.object.position.z + ball.radius < -BALL_INFERIOR_LIMIT && ball.bb.intersectsBox(topWall.bb)){
+function checkCollisions(ball) {
+    // Collision with the walls
+    if (ball.object.position.z - ball.radius < -BALL_INFERIOR_LIMIT && ball.bb.intersectsBox(topWall.bb)){
         ball.dz = -ball.dz;
     }
     if (ball.object.position.x - ball.radius < BALL_SIDE_LIMIT && ball.bb.intersectsBox(leftWall.bb)){
@@ -332,13 +375,22 @@ function checkCollisions() {
 
     // Collsion with the player
     // Only verifies when the ball is near the player, otherwise it won't execute aiming optimization
-    if (ball.object.position.z + ball.radius > BALL_INFERIOR_LIMIT){
+    if (ball.object.position.z + ball.radius > BALL_INFERIOR_LIMIT ){
         playerSegments.some((segment, index) => {
             if (ball.bb.intersectsBox(segment.bb)){
-                ball.dx = Math.cos(playerSegments[index].angle)*planeX/100;
-                ball.dz = -Math.sin(playerSegments[index].angle)*planeZ/200;
+                ball.dx = Math.cos(playerSegments[index].angle)*ball.speedConstant;
+                ball.dz = -Math.sin(playerSegments[index].angle)*ball.speedConstant;
                 return true;
-            } 
+            }
+        });
+    }
+    // Collsion with the powerUp
+    if (torus.visible && (torus.position.z + torus.geometry.parameters.radius > BALL_INFERIOR_LIMIT)){
+        playerSegments.some((segment, index) => {
+            if (torus.bb.intersectsBox(segment.bb)){
+                torus.visible = false;
+                duplicate();
+            }
         });
     }
     
@@ -346,7 +398,7 @@ function checkCollisions() {
     if (ball.object.position.z - ball.radius < BALL_BRICK_LIMIT){
         for (let i = 0; i < rowsAmount; i++){
             for (let j = 0; j < bricksAmount; j++){
-                if (bricks[i][j].bb && ball.bb.intersectsBox(bricks[i][j].bb[0])){
+                if (bricks[i][j].bb && ball.bb && ball.bb.intersectsBox(bricks[i][j].bb[0])){
                     if (ball.bb.intersectsBox(bricks[i][j].bb[1])){
                         ball.dz = Math.abs(ball.dz);
                     } else if (ball.bb.intersectsBox(bricks[i][j].bb[2])){
@@ -371,63 +423,99 @@ function checkCollisions() {
 
                     // If the brick has gray color and wasn't hit yet then increment brick.hits 
                     bricks[i][j].hits++;
-                    if (bricks[i][j].object.material.color.getHexString() === colors[0] && bricks[i][j].hits < 2)
+                    if (bricks[i][j].object.material.color.getHexString() === colors[0] && bricks[i][j].hits < 2){
+                        bricks[i][j].object.material.color.set("#979797");
                         continue;
-
+                    }
+                    
+                    bricksLeft--;
                     bricks[i][j].object.visible = false;
-                    //bricks[i][j].line.visible = false;
                     bricks[i][j].bb[0].makeEmpty();
-                    bricksDestroyed++;
+                    
+                    
+                    if (!torus.visible && numBalls == 1 && powerUpCounter++ && powerUpCounter == 2){
+                        torus.position.copy(bricks[i][j].object.position);
+                        torus.bb = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(torus);
+                        torus.visible = true;
+                        powerUpCounter = 0;
+                    }
+        
                     return true;
                 }
             }
         }
     }
-    
+
     // If ball is completely out of the bounds, reset the positions
     if (ball.object.position.z - ball.radius > planeZ/2){
-        resetPosition();
-        menu.style.display = 'block';
-        //menu.querySelector("h1").innerText = 'Você perdeu.';
-        ball.speedMultiplier = 1;
-        startTime = Date.now();
+        console.log("🚀 ~ file: index.js:431 ~ checkCollisions ~ numBalls:", numBalls)
+        if (numBalls == 1){
+            resetPosition();
+            menu.style.display = 'block';
+            //menu.querySelector("h1").innerText = 'Você perdeu.';
+            speedMultiplier = 1;
+            startTime = Date.now();
+        } else {
+            ball.object.visible = ball.move = false;
+        }
+    }
+
+    // If power up is completely out of the bounds, reset the positions
+    if (torus.position.z - torus.geometry.parameters.radius > planeZ/2){
+        torus.visible = false;
     }
 }
 
 let currentTime;
 let elapsedTime;
-function moveBall(){
-    if (ball.speedMultiplier < 2){
+function moveBall(ball){
+    if (speedMultiplier < 2){
         currentTime = Date.now();
         elapsedTime = currentTime - startTime;
-        ball.speedMultiplier = 1 + (elapsedTime / 15000); // Equivalence ratio for double the velocity in 15s (15000 ms)
+        speedMultiplier = 1 + (elapsedTime / 15000); // Equivalence ratio for double the velocity in 15s (15000 ms)
         showInterceptionCoords();
     } else {
-        ball.speedMultiplier = 2;
+        speedMultiplier = 2;
+    }
+    if (torus.visible){
+        torus.position.z += torus.speed;
+        torus.rotation.x += 0.01;
+        torus.rotation.y += 0.01;
+        torus.bb.min.z += torus.speed;
+        torus.bb.max.z += torus.speed;
     }
    
-    ball.object.position.x += ball.dx * Math.pow(ball.speedMultiplier, 1/2);
-    ball.object.position.z += ball.dz * Math.pow(ball.speedMultiplier, 1/2);
+    ball.object.position.x += ball.dx * Math.pow(speedMultiplier, 1/2);
+    ball.object.position.z += ball.dz * Math.pow(speedMultiplier, 1/2);
     ball.bb.center.copy(ball.object.position);
 }
 
 render();
+
 function render()
 {
-    if (ball.move){
-        moveBall();
-        checkCollisions();
-        moveBall();
-        checkCollisions();
-        if (bricksDestroyed === bricksAmount * rowsAmount){
+    for (let i = 0; i < 4; i++){
+        if (ball.move){
+            moveBall(ball);
+            checkCollisions(ball);
+        }
+        if (secondaryBall.move){
+            moveBall(secondaryBall);
+            checkCollisions(secondaryBall);
+        }
+    }
+    if (ball.move || secondaryBall.move){
+        if (!ball.move || !secondaryBall.move)
+            numBalls = 1;
+        if (bricksLeft === 0){
             if (level == 2){
                 end()
             } else {
                 nextLevel();
             }
         }
-    }
-    
+    } 
+ 
     requestAnimationFrame(render);
     renderer.render(scene, camera) // Render scene
 }
@@ -450,8 +538,14 @@ function resetPosition(){
     }
     ball.move = false;
     ball.object.position.copy(initialPositions[initialPositions.length - 1]);
-    ball.dx = Math.cos(playerSegments[player.center+1].angle)*planeX/100;
-    ball.dz = -Math.sin(playerSegments[player.center+1].angle)*planeZ/200;
+    ball.dx = Math.cos(playerSegments[player.center+1].angle)*ball.speedConstant;
+    ball.dz = -Math.sin(playerSegments[player.center+1].angle)*ball.speedConstant;
+    secondaryBall.object.copy(ball.object);
+        secondaryBall.object.visible = false;
+    secondaryBall.dx = ball.dx;
+    secondaryBall.dz = ball.dz;
+    secondaryBall.move = false;
+    numBalls = 1;
 
     //document.removeEventListener('mousemove', onMouseMove);
     document.addEventListener('click', () => {
@@ -471,10 +565,11 @@ export function restart(){
         }
     }
     resetPosition();
-    bricksDestroyed = 0;
+    bricksLeft = rowsAmount * bricksAmount;
     menu.querySelector("h1").innerText = 'Jogo pausado';
-    ball.speedMultiplier = 1;
+    speedMultiplier = 1;
     startTime = Date.now();
+    torus.visible = false;
 }
 
 let startPauseTime;
@@ -500,7 +595,7 @@ function end(){
 export function nextLevel(){
     resetPosition();
     // Remove remaining blocks
-    if (bricksDestroyed < bricksAmount * rowsAmount)
+    if (bricksLeft > 0)
         for (let i = 0; i < rowsAmount; i++){
             for (let j = 0; j < bricksAmount; j++){
                 scene.remove(bricks[i][j].object );
@@ -511,6 +606,9 @@ export function nextLevel(){
     bricksOffset = - planeX/2 + bricksX/2 + size.z/2 + bricksX/2; // Add offset of half brick at each border
     brickGeometry = new THREE.BoxGeometry(bricksX - 0.1, size.y, size.z - 0.1);
     bricks = new Array(rowsAmount);
+    speedMultiplier = 1;
+    bricksLeft = rowsAmount * bricksAmount;
+    level++;
 
     for(let i = 0; i < rowsAmount; i++){
         bricks[i] = new Array(bricksAmount);
@@ -518,7 +616,7 @@ export function nextLevel(){
             bricks[i][j] = {};
             if (j == Math.floor(bricksAmount/2)) continue; // central spacing
 
-            let brick = new THREE.Mesh(brickGeometry, size.material[(i+j)%colors.length]);
+            let brick = new THREE.Mesh(brickGeometry, new THREE.MeshLambertMaterial({color: "#"+colors[(i+j)%colors.length]}));
             brick.position.set(j*bricksX + bricksOffset,    size.positionY,   i*size.z - planeZ/4);
             brick.castShadow = true;
             

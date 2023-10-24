@@ -8,6 +8,7 @@ import {initRenderer,
         onWindowResize,
         createGroundPlaneXZ} from "../libs/util/util.js";
 import { MeshPhongMaterial } from '../build/three.module.js';
+import { CSG } from '../libs/other/CSGMesh.js'
 
 let scene, renderer, material, light, orbit;; // Initial variables
 scene = new THREE.Scene();    // Create main scene
@@ -17,6 +18,7 @@ material = setDefaultMaterial(); // create a basic material
 // Listen window size changes
 window.addEventListener( 'resize', function(){onWindowResize(camera, renderer, orthoSize)}, false );
 
+document.addEventListener('mousemove', onMouseMove);
 // Show axes (parameter is size of each axis)
 let axesHelper = new THREE.AxesHelper( 12 );
 //scene.add( axesHelper );
@@ -128,7 +130,6 @@ for(let i = 0; i < rowsAmount; i++){
         bricks[i][j].object = brick;
         //bricks[i][j].line = line;
         bricks[i][j].bb = new Array(9);
-        bricks[i][j].hits = 0;
         createBrickBoundingBoxes(bricks[i][j].bb, bricks[i][j].object);
     }
 }
@@ -182,12 +183,51 @@ let player = {
     y: size.y,
     z: size.z/3 + planeX/100,
 }
+let cubeMesh = new THREE.Mesh(new THREE.BoxGeometry(planeX/2, planeX/2, planeX/2))
+    cubeMesh.position.set(0, 0, 1);
+    cubeMesh.matrixAutoUpdate = false;
+    cubeMesh.updateMatrix();
+    
+let sphereMesh = new THREE.Mesh(new THREE.SphereGeometry(planeX/4,36,36))
+console.log("🚀 ~ file: index.js:193 ~ sphereMesh:", sphereMesh)
+
+let sphereCSG = CSG.fromMesh(sphereMesh);
+let cubeCSG = CSG.fromMesh(cubeMesh);
+let csgObject = sphereCSG.subtract(cubeCSG);
+    cubeMesh.position.set(0, planeX/4 + size.y/2, 0);
+    cubeMesh.updateMatrix();
+    cubeCSG = CSG.fromMesh(cubeMesh);
+    csgObject = csgObject.subtract(cubeCSG);
+    cubeMesh.position.set(0, -(planeX/4 + size.y/2), 0);
+    cubeMesh.updateMatrix();
+    cubeCSG = CSG.fromMesh(cubeMesh);
+    csgObject = csgObject.subtract(cubeCSG);
+let csgFinal = CSG.toMesh(csgObject, new THREE.Matrix4());
+    csgFinal.material = new THREE.MeshPhongMaterial({color: 'red'});
+    csgFinal.position.set(0, size.positionY, planeZ/2 + csgFinal.geometry.boundingSphere.radius)
+    csgFinal.bb = new THREE.Sphere(sphereMesh.geometry.position, planeX/4)
+    console.log("🚀 ~ file: index.js:206 ~ csgFinal.bb:", csgFinal.bb)
+
+const playerLength = (csgFinal.geometry.boundingBox.max.x - csgFinal.geometry.boundingBox.min.x).toFixed(2)
+    
+scene.add(csgFinal);
+
 player.center = parseInt(player.segments/2);
 brickGeometry = new THREE.BoxGeometry(player.x, player.y, player.z);
 player.edges = new THREE.EdgesGeometry(brickGeometry);
 
 let playerSegments = new Array(player.segments);
 const initialPositions = [];
+initialPositions.push(new THREE.Vector3().copy(csgFinal.position));
+const playerAngles = new Array(7) // Seven angles for hit against player
+
+for (let i = 0; i < playerAngles.length; i++){
+    playerAngles[i] = {};
+    playerAngles[i].x = (playerLength/playerAngles.length)*(i + 1)// Activation region, 0 <= ball.x < x, x <= ball.x < 2x ...
+    //playerAngles[i].value = Math.PI - (Math.PI/(playerAngles.length + 1)*(i + 1));
+    let auxAngle = Math.PI - (Math.PI/(playerAngles.length + 1)*(i + 1));
+    playerAngles[i].normal = new THREE.Vector3(Math.cos(auxAngle), 0, -Math.sin(auxAngle));
+}
 
 for(let i = 0; i < player.segments; i++){
     playerSegments[i] = {};
@@ -200,8 +240,8 @@ for(let i = 0; i < player.segments; i++){
     playerSegments[i].line = new THREE.LineSegments(player.edges, new THREE.LineBasicMaterial({color: "#111"})); 
     playerSegments[i].line.position.copy(playerSegments[i].object.position);
     
-    scene.add(playerSegments[i].object, playerSegments[i].line);
-    initialPositions.push(new THREE.Vector3().copy(playerSegments[i].object.position));
+    //scene.add(playerSegments[i].object, playerSegments[i].line);
+    //initialPositions.push(new THREE.Vector3().copy(playerSegments[i].object.position));
 }
 
 // Raycaster
@@ -227,9 +267,11 @@ document.addEventListener('click', () => {
     startTime = Date.now();
 }, {once: true});
 
-const LEFT_OFFSET = -planeX/2 + player.x/2 + size.z/2; // RIGHT_OFFSET = -LEFT_OFFSET
+
 const LEFT_LIMIT = -planeX/2 + size.z/2; // RIGHT_LIMIT = -LEFT_LIMIT
-const PLAYER_LEFT_END = -player.center * player.x - player.x/2; // PLAYER_RIGHT_END = -PLAYER_LEFT_END
+const LEFT_OFFSET = -planeX/2 + size.z/2 + csgFinal.geometry.boundingBox.max.x;
+const RIGHT_OFFSET = + planeX/2 - size.z/2 + csgFinal.geometry.boundingBox.min.x
+//const PLAYER_LEFT_END = -player.center * player.x - player.x/2; // PLAYER_RIGHT_END = -PLAYER_LEFT_END
 export function onMouseMove(event) 
 {
     let pointer = new THREE.Vector2();
@@ -243,29 +285,17 @@ export function onMouseMove(event)
     if (intersects.length > 0) {      
         let point = intersects[0].point; // Pick the point where interception occurrs
 
-        if (point.x + PLAYER_LEFT_END < LEFT_LIMIT){ // leftWall
-            for (let i = 0; i < player.segments; i++){
-                playerSegments[i].object.position.x = i * player.x + LEFT_OFFSET;
-                playerSegments[i].bb.copy(playerSegments[i].object.geometry.boundingBox).applyMatrix4(playerSegments[i].object.matrixWorld);
-                playerSegments[i].line.position.copy(playerSegments[i].object.position);
-            }
-        } else if (point.x - PLAYER_LEFT_END > -LEFT_LIMIT){ //rightWall
-            for (let i = 0; i < player.segments; i++){
-                let index = player.segments-1-i;
-                playerSegments[index].object.position.x = -i * player.x - LEFT_OFFSET;
-                playerSegments[index].bb.copy(playerSegments[index].object.geometry.boundingBox).applyMatrix4(playerSegments[index].object.matrixWorld);
-                playerSegments[index].line.position.copy(playerSegments[index].object.position);
-            }
+        if (point.x + csgFinal.geometry.boundingBox.min.x < LEFT_LIMIT){ // leftWall
+            csgFinal.position.x = LEFT_OFFSET;
+        } else if (point.x + csgFinal.geometry.boundingBox.max.x > -LEFT_LIMIT){ //rightWall
+            csgFinal.position.x = RIGHT_OFFSET;
         } else {
-            for (let i = 0; i < player.segments; i++){
-                playerSegments[i].object.position.x = point.x + ((i - player.center) * player.x);
-                playerSegments[i].bb.copy(playerSegments[i].object.geometry.boundingBox).applyMatrix4(playerSegments[i].object.matrixWorld);
-                playerSegments[i].line.position.copy(playerSegments[i].object.position);
-            }
+            csgFinal.position.x = point.x
         }
+        csgFinal.bb.center.copy(csgFinal.position)
 
         if (!ball.move){
-            ball.object.position.x = playerSegments[player.center+1].object.position.x;
+            ball.object.position.x = csgFinal.position.x;
             ball.bb.center.copy(ball.object.position);
         }
     }   
@@ -277,10 +307,6 @@ function showInterceptionCoords(){
 
 // Create ball
 let speedMultiplier = 1;
-let angleRotationMatrix = new THREE.Matrix3();
-    
-let angleRotationMatrix2 = new THREE.Matrix3();
-    angleRotationMatrix2.makeRotation(-Math.PI/12)
 class Ball {
     constructor(radius){
         this.radius = radius;
@@ -293,21 +319,8 @@ class Ball {
         this.dz = -Math.sin(this.angle) * this.speedConstant;
         this.initialDx = Math.cos(this.angle) * this.speedConstant;
         this.initialDz = -Math.sin(this.angle) * this.speedConstant;
-        
+    
         this.move = false
-        
-        // angleRotationMatrix.makeRotation(ballDirection.angle() + Math.PI/12)
-        // console.log("🚀 ~ file: index.js:303 ~ Ball ~ ballDirection:", ballDirection)
-        // ballDirection.applyMatrix3(angleRotationMatrix);
-        // console.log("🚀 ~ file: index.js:315 ~ Ball ~ ballDirection:", ballDirection)
-    }
-
-    setAngle = function(angle){
-        return {
-            angle: this.angle,
-            dx: this.dx,
-            dz: this.dz
-        }
     }
 }
 
@@ -327,11 +340,23 @@ function duplicate(){
         auxBall.object.visible = auxBall.move = true;
         numBalls++;
     }
+    // if (!secondaryBall.object.visible){
+    //     secondaryBall.object.position.copy(ball.object.position);
+    //     splitBall()
+    //     secondaryBall.object.visible = secondaryBall.move = true;
+    //     numBalls++;
+    // }
+    // if (!ball.object.visible){
+    //     ball.object.position.copy(secondaryBall.object.position);
+    //     splitBall()
+    //     ball.object.visible = ball.move = true;
+    //     numBalls++;
+    // }
 }
 
 export let ball = new Ball(player.z/2.5);
-ball.object.position.copy(playerSegments[player.center + 1].object.position); // Initial position
-ball.object.translateZ(-player.z);
+ball.object.position.copy(csgFinal.position); // Initial position
+ball.object.translateZ(-sphereMesh.geometry.parameters.radius - ball.radius);
 initialPositions.push(new THREE.Vector3().copy(ball.object.position));
 scene.add(ball.object);
 
@@ -350,7 +375,7 @@ const powerUpMaterial = new THREE.MeshPhongMaterial({
 const torus = new THREE.Mesh( powerUpGeometry, powerUpMaterial );
     torus.rotateOnAxis(new THREE.Vector3( 1, 0, 0), THREE.MathUtils.degToRad(90))
     torus.visible = false;
-    torus.speed = -ball.initialDz/3;
+    torus.speed = -ball.initialDz/4;
 let powerUpCounter = 0;
 scene.add( torus );
 
@@ -359,6 +384,7 @@ let bricksLeft = rowsAmount * bricksAmount;
 const BALL_INFERIOR_LIMIT = playerSegments[0].object.position.z - player.z*3;
 const BALL_SIDE_LIMIT = leftWall.object.position.x + size.x;
 let BALL_BRICK_LIMIT = bricks[rowsAmount-1][bricksAmount-1].object.position.z + size.z*2;
+let angle;
 function checkCollisions(ball) {
     // Collision with the walls
     if (ball.object.position.z - ball.radius < -BALL_INFERIOR_LIMIT && ball.bb.intersectsBox(topWall.bb)){
@@ -373,27 +399,56 @@ function checkCollisions(ball) {
         return true;
     }
 
+    // If ball is completely out of the bounds, reset the positions
+    if (ball.object.position.z - ball.radius > planeZ/2){
+        //console.log("🚀 ~ file: index.js:431 ~ checkCollisions ~ numBalls:", numBalls)
+        if (numBalls == 1){
+            resetPosition();
+            menu.style.display = 'block';
+            //menu.querySelector("h1").innerText = 'Você perdeu.';
+            speedMultiplier = 1;
+            startTime = Date.now();
+        } else {
+            ball.object.visible = false; ball.move = false;
+        }
+    }
+
+    // If power up is completely out of the bounds, reset the positions
+    if (torus.position.z - torus.geometry.parameters.radius > planeZ/2){
+        torus.visible = false;
+    }
+
     // Collsion with the player
     // Only verifies when the ball is near the player, otherwise it won't execute aiming optimization
     if (ball.object.position.z + ball.radius > BALL_INFERIOR_LIMIT ){
-        playerSegments.some((segment, index) => {
-            if (ball.bb.intersectsBox(segment.bb)){
-                ball.dx = Math.cos(playerSegments[index].angle)*ball.speedConstant;
-                ball.dz = -Math.sin(playerSegments[index].angle)*ball.speedConstant;
-                return true;
+        if (ball.bb.intersectsSphere(csgFinal.bb)){
+            angle = playerAngles.find(angle => {
+                console.log("🚀 ~ file: index.js:443 ~ checkCollisions ~ csgFinal.geometry.boundingBox.min.x:", csgFinal.geometry.boundingBox.min.x)
+                console.log("🚀 ~ file: index.js:445 ~ checkCollisions ~ csgFinal.bb.center.x:", csgFinal.bb.center.x)
+
+                return ball.bb.center.x < (csgFinal.bb.center.x + csgFinal.geometry.boundingBox.min.x + angle.x)
+            })
+            if (angle){
+                // ball.dx = Math.cos(angle.value)*ball.speedConstant;
+                // ball.dz = -Math.sin(angle.value)*ball.speedConstant;
+                let direction = new THREE.Vector3(ball.dx / ball.speedConstant, 0, ball.dz / ball.speedConstant );
+                //console.log("🚀 ~ file: index.js:438 ~ checkCollisions ~ direction1:", direction)
+                direction.reflect(angle.normal);
+                //console.log("🚀 ~ file: index.js:440 ~ checkCollisions ~ angle.normal:", angle.normal)
+                //console.log("🚀 ~ file: index.js:436 ~ checkCollisions ~ direction:", direction)
+                ball.dx = direction.x * ball.speedConstant;
+                ball.dz = -Math.abs(direction.z) * ball.speedConstant;
             }
-        });
+        }
     }
     // Collsion with the powerUp
     if (torus.visible && (torus.position.z + torus.geometry.parameters.radius > BALL_INFERIOR_LIMIT)){
-        playerSegments.some((segment, index) => {
-            if (torus.bb.intersectsBox(segment.bb)){
-                torus.visible = false;
-                duplicate();
-            }
-        });
+        if (torus.bb.intersectsSphere(csgFinal.bb)){
+            torus.visible = false;
+            duplicate();
+        }
     }
-    
+
     // Collision with the bricks
     if (ball.object.position.z - ball.radius < BALL_BRICK_LIMIT){
         for (let i = 0; i < rowsAmount; i++){
@@ -421,9 +476,8 @@ function checkCollisions(ball) {
                         ball.dz = Math.abs(ball.dz);
                     }
 
-                    // If the brick has gray color and wasn't hit yet then increment brick.hits 
-                    bricks[i][j].hits++;
-                    if (bricks[i][j].object.material.color.getHexString() === colors[0] && bricks[i][j].hits < 2){
+                    // change gray bricks' color after first hit
+                    if (bricks[i][j].object.material.color.getHexString() === colors[0]){
                         bricks[i][j].object.material.color.set("#979797");
                         continue;
                     }
@@ -431,7 +485,6 @@ function checkCollisions(ball) {
                     bricksLeft--;
                     bricks[i][j].object.visible = false;
                     bricks[i][j].bb[0].makeEmpty();
-                    
                     
                     if (!torus.visible && numBalls == 1 && powerUpCounter++ && powerUpCounter == 2){
                         torus.position.copy(bricks[i][j].object.position);
@@ -444,25 +497,6 @@ function checkCollisions(ball) {
                 }
             }
         }
-    }
-
-    // If ball is completely out of the bounds, reset the positions
-    if (ball.object.position.z - ball.radius > planeZ/2){
-        console.log("🚀 ~ file: index.js:431 ~ checkCollisions ~ numBalls:", numBalls)
-        if (numBalls == 1){
-            resetPosition();
-            menu.style.display = 'block';
-            //menu.querySelector("h1").innerText = 'Você perdeu.';
-            speedMultiplier = 1;
-            startTime = Date.now();
-        } else {
-            ball.object.visible = ball.move = false;
-        }
-    }
-
-    // If power up is completely out of the bounds, reset the positions
-    if (torus.position.z - torus.geometry.parameters.radius > planeZ/2){
-        torus.visible = false;
     }
 }
 
@@ -496,10 +530,12 @@ function render()
 {
     for (let i = 0; i < 4; i++){
         if (ball.move){
+            //console.log("ball")
             moveBall(ball);
             checkCollisions(ball);
         }
         if (secondaryBall.move){
+             
             moveBall(secondaryBall);
             checkCollisions(secondaryBall);
         }
@@ -509,7 +545,7 @@ function render()
             numBalls = 1;
         if (bricksLeft === 0){
             if (level == 2){
-                end()
+                end() 
             } else {
                 nextLevel();
             }
@@ -531,17 +567,16 @@ let leftWallLimit;
 let rightWallLimit;
 
 function resetPosition(){
-    for (let i = 0; i < playerSegments.length; i++){
-        playerSegments[i].object.position.copy(initialPositions[i]);
-        playerSegments[i].bb.copy(playerSegments[i].object.geometry.boundingBox).applyMatrix4(playerSegments[i].object.matrixWorld);
-        playerSegments[i].line.position.copy(playerSegments[i].object.position);
-    }
+    csgFinal.position.copy(initialPositions[0]);
+    csgFinal.bb.center.copy(csgFinal.position);
+
     ball.move = false;
     ball.object.position.copy(initialPositions[initialPositions.length - 1]);
-    ball.dx = Math.cos(playerSegments[player.center+1].angle)*ball.speedConstant;
-    ball.dz = -Math.sin(playerSegments[player.center+1].angle)*ball.speedConstant;
+    ball.dx = Math.cos(Math.PI / 2) * ball.speedConstant;
+    ball.dz = -Math.sin(Math.PI / 2) * ball.speedConstant;
+
     secondaryBall.object.copy(ball.object);
-        secondaryBall.object.visible = false;
+    secondaryBall.object.visible = false;
     secondaryBall.dx = ball.dx;
     secondaryBall.dz = ball.dz;
     secondaryBall.move = false;
@@ -560,8 +595,10 @@ export function restart(){
         for (let j = 0; j < bricksAmount; j++){
             if (!bricks[i][j].object) continue;
             bricks[i][j].object.visible = true;
-            //bricks[i][j].line.visible = true;
-            bricks[i][j].bb[0].copy(bricks[i][j].object.geometry.boundingBox).applyMatrix4(bricks[i][j].object.matrixWorld);;
+            bricks[i][j].bb[0].copy(bricks[i][j].object.geometry.boundingBox).applyMatrix4(bricks[i][j].object.matrixWorld);
+            if (bricks[i][j].object.material.color.getHexString() === "979797"){
+                bricks[i][j].object.material.color.set("#"+colors[0]);
+            }
         }
     }
     resetPosition();
@@ -578,10 +615,13 @@ export function pause(pause){
         startPauseTime = Date.now();
         menu.style.display = 'block';
         ball.move = false;
+        secondaryBall.move = false;
         document.removeEventListener('mousemove', onMouseMove);
+        console.log(csgFinal)
     } else { // unpause   
         menu.style.display = 'none';
-        ball.move = true;
+        if (ball.object.visible) ball.move = true;
+        if (secondaryBall.object.visible) secondaryBall.move = true;
         document.addEventListener('mousemove', onMouseMove);
         startTime += Date.now() - startPauseTime;
     }
@@ -608,6 +648,7 @@ export function nextLevel(){
     bricks = new Array(rowsAmount);
     speedMultiplier = 1;
     bricksLeft = rowsAmount * bricksAmount;
+    torus.visible = false
     level++;
 
     for(let i = 0; i < rowsAmount; i++){
@@ -624,7 +665,6 @@ export function nextLevel(){
     
             bricks[i][j].object = brick;
             bricks[i][j].bb = new Array(9);
-            bricks[i][j].hits = 0;
             createBrickBoundingBoxes(bricks[i][j].bb, bricks[i][j].object);
         }
     }

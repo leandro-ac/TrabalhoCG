@@ -1,7 +1,7 @@
 import { onMouseMove, ball, restart, pause, showLimits, nextLevel} from "./index.js";
 
 let visible = true;
-
+let move = false; 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'r' || e.key === 'R'){
         restart();
@@ -17,7 +17,8 @@ document.addEventListener('keydown', (e) => {
     }
 
     if (e.key === " "){
-        pause(ball.move);
+        pause(move);
+        move = !move
     }
 
     if (e.key === "Enter"){

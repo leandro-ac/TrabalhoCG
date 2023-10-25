@@ -347,7 +347,7 @@ const powerUpMaterial = new THREE.MeshPhongMaterial({
 const torus = new THREE.Mesh( powerUpGeometry, powerUpMaterial );
     torus.rotateOnAxis(new THREE.Vector3( 1, 0, 0), THREE.MathUtils.degToRad(90))
     torus.visible = false;
-    torus.speed = -ball.initialDz/4;
+    torus.speed = -ball.initialDz/2;
 let powerUpCounter = 0;
 scene.add( torus );
 
@@ -531,17 +531,17 @@ function resetPosition(){
     pause(true)
     csgFinal.position.copy(initialPositions[0]);
     csgFinal.bb.center.copy(csgFinal.position);
-    
     ball.object.position.copy(initialPositions[initialPositions.length - 1]);
     ball.bb.center.copy(ball.object.position);
     ball.dx = Math.cos(Math.PI / 2) * ball.speedConstant;
     ball.dz = -Math.sin(Math.PI / 2) * ball.speedConstant;
+    ball.object.visible = true;
 
-    secondaryBall.object.copy(ball.object);
+    secondaryBall.object.position.copy(initialPositions[initialPositions.length - 1]);
     secondaryBall.bb.center.copy(secondaryBall.object.position);
-    secondaryBall.object.visible = false;
     secondaryBall.dx = ball.dx;
     secondaryBall.dz = ball.dz;
+    secondaryBall.object.visible = false;
     
     numBalls = 1;
 }
@@ -634,7 +634,6 @@ export function nextLevel(){
     // Update limit when checking for collisions with bricks
     if (center)
         center.geometry = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, BALL_BRICK_LIMIT), new THREE.Vector3(planeX/2, 0, BALL_BRICK_LIMIT) ] );
-
 }
 
 // Show information onscreen

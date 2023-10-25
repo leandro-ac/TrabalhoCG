@@ -581,6 +581,8 @@ export function pause(pause){
         
         if (startPauseTime)
             startTime += Date.now() - startPauseTime;
+        else 
+            startTime = Date.now();
     }
 }
 
@@ -608,6 +610,7 @@ export function nextLevel(){
     bricksLeft = 0;
     torus.visible = false
     level++;
+    startTime = Date.now();
 
     for(let i = 0; i < rowsAmount; i++){
         bricks[i] = new Array(bricksAmount);

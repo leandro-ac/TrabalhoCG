@@ -304,6 +304,8 @@ controls.show();
 
 /***** Utilities *****/ 
 
+const BALL_INFERIOR_LIMIT = planeZ/2 - csgFinal.geometry.boundingSphere.   radius;
+const BALL_SIDE_LIMIT = leftWall.object.position.x + size.x;
 let visible = true;
 let inferiorLimit;
 let center;
@@ -311,15 +313,18 @@ let superiorLimit;
 let leftWallLimit;
 let rightWallLimit;
 
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'l' || e.key === 'L'){
+        showLimits(visible)
+    }
+})
+
 function viewLimits(){    
     let lineColor = new THREE.LineBasicMaterial({color: "#FFF"});
 
     let geometry = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, BALL_INFERIOR_LIMIT), new THREE.Vector3(planeX/2, 0, BALL_INFERIOR_LIMIT) ] );
     inferiorLimit = new THREE.Line( geometry , lineColor );
     scene.add(inferiorLimit);
-    let geometry2 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, BALL_BRICK_LIMIT), new THREE.Vector3(planeX/2, 0, BALL_BRICK_LIMIT) ] );
-    center = new THREE.Line( geometry2, lineColor );
-    scene.add(center);
     let geometry3 = new THREE.BufferGeometry().setFromPoints( [new THREE.Vector3(-planeX/2, 0, -BALL_INFERIOR_LIMIT), new THREE.Vector3(planeX/2, 0, -BALL_INFERIOR_LIMIT) ] );
     superiorLimit = new THREE.Line( geometry3 , lineColor );
     scene.add(superiorLimit);
@@ -331,12 +336,11 @@ function viewLimits(){
     scene.add(rightWallLimit);
 }
 
-export function showLimits(){
+function showLimits(){
     if (!inferiorLimit){
         viewLimits();
     }
     inferiorLimit.visible = visible;
-    center.visible = visible;
     superiorLimit.visible = visible;
     leftWallLimit.visible = visible;
     rightWallLimit.visible = visible;

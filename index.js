@@ -189,7 +189,6 @@ let cubeMesh = new THREE.Mesh(new THREE.BoxGeometry(planeX/2, planeX/2, planeX/2
     cubeMesh.updateMatrix();
     
 let sphereMesh = new THREE.Mesh(new THREE.SphereGeometry(planeX/4,36,36))
-console.log("🚀 ~ file: index.js:193 ~ sphereMesh:", sphereMesh)
 
 let sphereCSG = CSG.fromMesh(sphereMesh);
 let cubeCSG = CSG.fromMesh(cubeMesh);
@@ -206,42 +205,22 @@ let csgFinal = CSG.toMesh(csgObject, new THREE.Matrix4());
     csgFinal.material = new THREE.MeshPhongMaterial({color: 'red'});
     csgFinal.position.set(0, size.positionY, planeZ/2 + csgFinal.geometry.boundingSphere.radius)
     csgFinal.bb = new THREE.Sphere(sphereMesh.geometry.position, planeX/4)
-    console.log("🚀 ~ file: index.js:206 ~ csgFinal.bb:", csgFinal.bb)
-
-const playerLength = (csgFinal.geometry.boundingBox.max.x - csgFinal.geometry.boundingBox.min.x).toFixed(2)
-    
 scene.add(csgFinal);
 
-player.center = parseInt(player.segments/2);
-brickGeometry = new THREE.BoxGeometry(player.x, player.y, player.z);
-player.edges = new THREE.EdgesGeometry(brickGeometry);
+const playerLength = (csgFinal.geometry.boundingBox.max.x - csgFinal.geometry.boundingBox.min.x).toFixed(2);
 
-let playerSegments = new Array(player.segments);
+//brickGeometry = new THREE.BoxGeometry(player.x, player.y, player.z);
+
 const initialPositions = [];
 initialPositions.push(new THREE.Vector3().copy(csgFinal.position));
-const playerAngles = new Array(7) // Seven angles for hit against player
+const playerAngles = new Array(9) // Seven angles for hit against player
 
 for (let i = 0; i < playerAngles.length; i++){
     playerAngles[i] = {};
-    playerAngles[i].x = (playerLength/playerAngles.length)*(i + 1)// Activation region, 0 <= ball.x < x, x <= ball.x < 2x ...
-    //playerAngles[i].value = Math.PI - (Math.PI/(playerAngles.length + 1)*(i + 1));
-    let auxAngle = Math.PI - (Math.PI/(playerAngles.length + 1)*(i + 1));
-    playerAngles[i].normal = new THREE.Vector3(Math.cos(auxAngle), 0, -Math.sin(auxAngle));
-}
-
-for(let i = 0; i < player.segments; i++){
-    playerSegments[i] = {};
-    playerSegments[i].object = new THREE.Mesh(brickGeometry, new THREE.LineBasicMaterial({color: "#555"}));
-    playerSegments[i].object.position.set(-player.center*player.x + i*player.x   ,  size.positionY   , planeZ/2 - size.z);
-    playerSegments[i].object.castShadow = true;
-
-    playerSegments[i].bb = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(playerSegments[i].object);
-    playerSegments[i].angle = Math.PI - (Math.PI/(player.segments + 1)*(i + 1));
-    playerSegments[i].line = new THREE.LineSegments(player.edges, new THREE.LineBasicMaterial({color: "#111"})); 
-    playerSegments[i].line.position.copy(playerSegments[i].object.position);
-    
-    //scene.add(playerSegments[i].object, playerSegments[i].line);
-    //initialPositions.push(new THREE.Vector3().copy(playerSegments[i].object.position));
+    // Activation region, 0 <= ball.x < x, x <= ball.x < 2x ...
+    playerAngles[i].x = (playerLength/playerAngles.length)*(i + 1)
+    playerAngles[i].value = Math.PI - (Math.PI/(playerAngles.length + 1)*(i + 1));
+    playerAngles[i].normal = new THREE.Vector3(Math.cos(playerAngles[i].value), 0, -Math.sin(playerAngles[i].value));
 }
 
 // Raycaster
@@ -271,7 +250,6 @@ document.addEventListener('click', () => {
 const LEFT_LIMIT = -planeX/2 + size.z/2; // RIGHT_LIMIT = -LEFT_LIMIT
 const LEFT_OFFSET = -planeX/2 + size.z/2 + csgFinal.geometry.boundingBox.max.x;
 const RIGHT_OFFSET = + planeX/2 - size.z/2 + csgFinal.geometry.boundingBox.min.x
-//const PLAYER_LEFT_END = -player.center * player.x - player.x/2; // PLAYER_RIGHT_END = -PLAYER_LEFT_END
 export function onMouseMove(event) 
 {
     let pointer = new THREE.Vector2();
@@ -324,34 +302,28 @@ class Ball {
     }
 }
 
+const angle15rad = Math.PI/12;
 function splitBall(){
-    let angle = new THREE.Vector2(ball.dx, ball.dz).angle();
-    ball.dx = Math.cos(angle + Math.PI/12) * ball.speedConstant;
-    ball.dz = Math.sin(angle + Math.PI/12) * ball.speedConstant;
-    secondaryBall.dx = Math.cos(angle - Math.PI/12) * secondaryBall.speedConstant;
-    secondaryBall.dz = Math.sin(angle - Math.PI/12) * secondaryBall.speedConstant;
+    let angle = new THREE.Vector2(ball.dx * 100, ball.dz * 100).angle();
+    ball.dx = Math.cos(angle + angle15rad) * ball.speedConstant;
+    ball.dz = Math.sin(angle + angle15rad) * ball.speedConstant;
+    secondaryBall.dx = Math.cos(angle - angle15rad) * secondaryBall.speedConstant;
+    secondaryBall.dz = Math.sin(angle - angle15rad) * secondaryBall.speedConstant;
 }
 
 function duplicate(){
-    let auxBall = !secondaryBall.object.visible ? secondaryBall : ball;
-    if (!auxBall.object.visible){
-        auxBall.object.position.copy(ball.object.position);
+    if (!secondaryBall.object.visible){
+        secondaryBall.object.position.copy(ball.object.position);
         splitBall()
-        auxBall.object.visible = auxBall.move = true;
+        secondaryBall.object.visible = secondaryBall.move = true;
         numBalls++;
     }
-    // if (!secondaryBall.object.visible){
-    //     secondaryBall.object.position.copy(ball.object.position);
-    //     splitBall()
-    //     secondaryBall.object.visible = secondaryBall.move = true;
-    //     numBalls++;
-    // }
-    // if (!ball.object.visible){
-    //     ball.object.position.copy(secondaryBall.object.position);
-    //     splitBall()
-    //     ball.object.visible = ball.move = true;
-    //     numBalls++;
-    // }
+    if (!ball.object.visible){
+        ball.object.position.copy(secondaryBall.object.position);
+        splitBall()
+        ball.object.visible = ball.move = true;
+        numBalls++;
+    }
 }
 
 export let ball = new Ball(player.z/2.5);
@@ -381,7 +353,7 @@ scene.add( torus );
 
 // Collisions detection 
 let bricksLeft = rowsAmount * bricksAmount;
-const BALL_INFERIOR_LIMIT = playerSegments[0].object.position.z - player.z*3;
+const BALL_INFERIOR_LIMIT = planeZ/2 - csgFinal.geometry.boundingSphere.   radius;
 const BALL_SIDE_LIMIT = leftWall.object.position.x + size.x;
 let BALL_BRICK_LIMIT = bricks[rowsAmount-1][bricksAmount-1].object.position.z + size.z*2;
 let angle;
@@ -401,15 +373,15 @@ function checkCollisions(ball) {
 
     // If ball is completely out of the bounds, reset the positions
     if (ball.object.position.z - ball.radius > planeZ/2){
-        //console.log("🚀 ~ file: index.js:431 ~ checkCollisions ~ numBalls:", numBalls)
-        if (numBalls == 1){
+        if (numBalls >= 2){
+            ball.object.visible = false; ball.move = false;
+            numBalls--;
+        } else{
             resetPosition();
             menu.style.display = 'block';
             //menu.querySelector("h1").innerText = 'Você perdeu.';
             speedMultiplier = 1;
             startTime = Date.now();
-        } else {
-            ball.object.visible = false; ball.move = false;
         }
     }
 
@@ -421,23 +393,15 @@ function checkCollisions(ball) {
     // Collsion with the player
     // Only verifies when the ball is near the player, otherwise it won't execute aiming optimization
     if (ball.object.position.z + ball.radius > BALL_INFERIOR_LIMIT ){
-        if (ball.bb.intersectsSphere(csgFinal.bb)){
+        if (ball.bb.intersectsSphere(csgFinal.bb) && ball.object.position.z + ball.radius < planeZ){
             angle = playerAngles.find(angle => {
-                console.log("🚀 ~ file: index.js:443 ~ checkCollisions ~ csgFinal.geometry.boundingBox.min.x:", csgFinal.geometry.boundingBox.min.x)
-                console.log("🚀 ~ file: index.js:445 ~ checkCollisions ~ csgFinal.bb.center.x:", csgFinal.bb.center.x)
-
-                return ball.bb.center.x < (csgFinal.bb.center.x + csgFinal.geometry.boundingBox.min.x + angle.x)
+                return ball.bb.center.x < (csgFinal.bb.center.x - playerLength/2 + angle.x)
             })
             if (angle){
-                // ball.dx = Math.cos(angle.value)*ball.speedConstant;
-                // ball.dz = -Math.sin(angle.value)*ball.speedConstant;
-                let direction = new THREE.Vector3(ball.dx / ball.speedConstant, 0, ball.dz / ball.speedConstant );
-                //console.log("🚀 ~ file: index.js:438 ~ checkCollisions ~ direction1:", direction)
+                let direction = new THREE.Vector3(ball.dx * 1000, 0, ball.dz * 1000 ).normalize();
                 direction.reflect(angle.normal);
-                //console.log("🚀 ~ file: index.js:440 ~ checkCollisions ~ angle.normal:", angle.normal)
-                //console.log("🚀 ~ file: index.js:436 ~ checkCollisions ~ direction:", direction)
                 ball.dx = direction.x * ball.speedConstant;
-                ball.dz = -Math.abs(direction.z) * ball.speedConstant;
+                ball.dz = -Math.abs(direction. z) * ball.speedConstant;
             }
         }
     }
@@ -485,7 +449,7 @@ function checkCollisions(ball) {
                     bricksLeft--;
                     bricks[i][j].object.visible = false;
                     bricks[i][j].bb[0].makeEmpty();
-                    
+                   
                     if (!torus.visible && numBalls == 1 && powerUpCounter++ && powerUpCounter == 2){
                         torus.position.copy(bricks[i][j].object.position);
                         torus.bb = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(torus);
@@ -528,21 +492,18 @@ render();
 
 function render()
 {
-    for (let i = 0; i < 4; i++){
-        if (ball.move){
-            //console.log("ball")
-            moveBall(ball);
-            checkCollisions(ball);
-        }
-        if (secondaryBall.move){
-             
-            moveBall(secondaryBall);
-            checkCollisions(secondaryBall);
-        }
-    }
     if (ball.move || secondaryBall.move){
-        if (!ball.move || !secondaryBall.move)
-            numBalls = 1;
+        for (let i = 0; i < 4; i++){
+            if (ball.move){
+                moveBall(ball);
+                checkCollisions(ball);
+            }
+            if (secondaryBall.move){
+                moveBall(secondaryBall);
+                checkCollisions(secondaryBall);
+            }
+        }
+        
         if (bricksLeft === 0){
             if (level == 2){
                 end() 
@@ -567,27 +528,22 @@ let leftWallLimit;
 let rightWallLimit;
 
 function resetPosition(){
+    pause(true)
     csgFinal.position.copy(initialPositions[0]);
     csgFinal.bb.center.copy(csgFinal.position);
-
-    ball.move = false;
+    
     ball.object.position.copy(initialPositions[initialPositions.length - 1]);
+    ball.bb.center.copy(ball.object.position);
     ball.dx = Math.cos(Math.PI / 2) * ball.speedConstant;
     ball.dz = -Math.sin(Math.PI / 2) * ball.speedConstant;
 
     secondaryBall.object.copy(ball.object);
+    secondaryBall.bb.center.copy(secondaryBall.object.position);
     secondaryBall.object.visible = false;
     secondaryBall.dx = ball.dx;
     secondaryBall.dz = ball.dz;
-    secondaryBall.move = false;
+    
     numBalls = 1;
-
-    //document.removeEventListener('mousemove', onMouseMove);
-    document.addEventListener('click', () => {
-        menu.style.display = 'none';
-        document.addEventListener('mousemove', onMouseMove);
-        ball.move = true;
-    }, {once: true});
 }
 
 export function restart(){
@@ -617,13 +573,14 @@ export function pause(pause){
         ball.move = false;
         secondaryBall.move = false;
         document.removeEventListener('mousemove', onMouseMove);
-        console.log(csgFinal)
     } else { // unpause   
         menu.style.display = 'none';
         if (ball.object.visible) ball.move = true;
         if (secondaryBall.object.visible) secondaryBall.move = true;
         document.addEventListener('mousemove', onMouseMove);
-        startTime += Date.now() - startPauseTime;
+        
+        if (startPauseTime)
+            startTime += Date.now() - startPauseTime;
     }
 }
 
@@ -641,13 +598,14 @@ export function nextLevel(){
                 scene.remove(bricks[i][j].object );
             }
         }
+
     bricksAmount = 9;
     rowsAmount = 14;
     bricksOffset = - planeX/2 + bricksX/2 + size.z/2 + bricksX/2; // Add offset of half brick at each border
     brickGeometry = new THREE.BoxGeometry(bricksX - 0.1, size.y, size.z - 0.1);
     bricks = new Array(rowsAmount);
     speedMultiplier = 1;
-    bricksLeft = rowsAmount * bricksAmount;
+    bricksLeft = 0;
     torus.visible = false
     level++;
 
@@ -657,6 +615,7 @@ export function nextLevel(){
             bricks[i][j] = {};
             if (j == Math.floor(bricksAmount/2)) continue; // central spacing
 
+            bricksLeft++;
             let brick = new THREE.Mesh(brickGeometry, new THREE.MeshLambertMaterial({color: "#"+colors[(i+j)%colors.length]}));
             brick.position.set(j*bricksX + bricksOffset,    size.positionY,   i*size.z - planeZ/4);
             brick.castShadow = true;

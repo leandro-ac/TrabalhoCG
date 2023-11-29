@@ -1,7 +1,7 @@
-import { onMouseMove, ball, restart, pause, showLimits, nextLevel} from "./index.js";
+import {restart, pause, showLimits, nextLevel, toggleOrbit} from "./index.js";
 
 let visible = true;
-let move = false; 
+let move = true; 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'r' || e.key === 'R'){
         restart();
@@ -13,12 +13,18 @@ document.addEventListener('keydown', (e) => {
     }
 
     if (e.key === 'g' || e.key === 'G'){
-        nextLevel()
+        nextLevel();
+    }
+
+    if (e.key === 'o' || e.key === 'O'){
+        toggleOrbit(move);
+        pause(move);
+        move = !move;
     }
 
     if (e.key === " "){
         pause(move);
-        move = !move
+        move = !move;
     }
 
     if (e.key === "Enter"){

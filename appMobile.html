@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trabalho CG</title>
+
+    <link rel="shortcut icon" href="../favicon.ico">
+    <!-- <link rel="stylesheet" href="../html/resources/default.css"> -->
+    <link rel="stylesheet" href="./style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">  
+  </head>
+
+<body>
+    <!-- Import maps polyfill -- Remove this when import maps will be widely supported-->
+    <!-- <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>   -->
+    <script type="importmap"> 
+        {"imports": {"three": "../build/three.module.js"}} 
+    </script> 
+    
+    <button id="fullscreen" class="video-game-button">
+        <img id="fullscreenSvg" src="./assets/Fullscreen.svg" alt="Ícone de tela cheia" style="display: block; margin: auto auto;">
+    </button>
+    <button id="start" class="video-game-button">
+        <img id="startSvg" src="./assets/Start.svg" alt="Ícone de iniciar" style="display: block; margin: auto auto;">
+    </button>
+    <button id="restart" class="video-game-button">
+        <img id="restartSvg" src="./assets/Restart.svg" alt="Ícone de iniciar" style="display: block; margin: auto auto;">
+    </button>
+
+    <div id="menu">
+        <h1>JOGO PAUSADO</h1>
+    </div>
+
+    <canvas id="lives"></canvas>
+
+    <div id="webgl-output">     
+        <script type="module" src="./appMobile.js"></script>
+    </div>
+
+    <script type="module" src="./menuMobile.js"></script>
+    <script type="module" src="./lives.js"></script> 
+</body>
+
+</html>

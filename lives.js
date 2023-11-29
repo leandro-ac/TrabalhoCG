@@ -2,7 +2,7 @@
 import * as THREE from  'three';
 
 const container = document.getElementById('lives');
-const size = {
+let size = {
     width: container.offsetWidth,
     height: container.offsetHeight,
 }
@@ -10,7 +10,6 @@ const size = {
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera (45, size.width / size.height, 0.1, 500);
     camera.position.setZ(10);
-
 
 document.body.appendChild(container);
 
@@ -25,13 +24,6 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.enabled = true;
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( size.width, size.height );
-
-// const planeGeometry = new THREE.PlaneGeometry(50, 15, 10, 10);
-// const planeMaterial = new THREE.MeshLambertMaterial({ color: 0x00db64, side: THREE.DoubleSide });
-// let plane = new THREE.Mesh(planeGeometry, planeMaterial);
-// plane.position.z = -5
-// plane.receiveShadow = true;
-//scene.add(plane)
 
 export let remainingLives = 4;
 const lives = [];
@@ -67,6 +59,10 @@ scene.add(ambientLight,light);
 
 export function decreaseLives(){
     remainingLives--;
+}
+
+export function resetLives(){
+    remainingLives = 4;
 }
 
 function render(){

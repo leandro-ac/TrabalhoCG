@@ -1,15 +1,16 @@
 import * as THREE from  'three';
 import { OrbitControls } from '../build/jsm/controls/OrbitControls.js';
-import {initRenderer, 
-        initDefaultBasicLight,
+import {initRenderer,
         setDefaultMaterial,
         InfoBox,
         SecondaryBox,
         onWindowResize,
         createGroundPlaneXZ} from "../libs/util/util.js";
-import { MeshPhongMaterial } from '../build/three.module.js';
+import { MeshPhongMaterial, ObjectLoader } from '../build/three.module.js';
 import { CSG } from '../libs/other/CSGMesh.js'
 import { RGBELoader } from '../build/jsm/loaders/RGBELoader.js';
+import { GLTFLoader } from '../build/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from '../build/jsm/environments/RoomEnvironment.js';
 
 let scene, renderer, material, light, orbit; // Initial variables
 scene = new THREE.Scene();    // Create main scene
@@ -25,30 +26,24 @@ let axesHelper = new THREE.AxesHelper( 12 );
 //scene.add( axesHelper );
 
 // Create the ground plane
-let planeX = 20;
+let planeX =  20;
 let planeZ = planeX*2;
 let planeColor = "rgb(0, 219, 100)";
 
 // Background
+const environment = new RoomEnvironment();
+const pmremGenerator = new THREE.PMREMGenerator( renderer );
+scene.environment = pmremGenerator.fromScene( environment ).texture;
+//renderer.outputEncoding = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 2.5;
 
-const skybox = new THREE.TextureLoader();
-let textureEquirec = skybox.load('../assets/textures/brown_photostudio_02_4k.jpg');
-textureEquirec.mapping = THREE.EquirectangularReflectionMapping;
-scene.background = textureEquirec;
-
-// renderer.outputEncoding = THREE.SRGBColorSpace;
-// renderer.toneMapping = THREE.ACESFilmicToneMapping;
-// renderer.toneMappingExposure = 2.5;
-
-// const loader = new RGBELoader();
-// loader.load('../assets/textures/cannon_4k.hdr', (texture) => {
-//     texture.mapping = THREE.EquirectangularReflectionMapping;
-//     texture.exposure = 2
-//     scene.background = texture;
-// });
-
-
-
+const loader = new RGBELoader();
+loader.load('./assets/wooden_lounge_4k.hdr', (texture) => {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    texture.exposure = 2;
+    scene.background = texture;
+});
 
 // Camera
 export let orthoSize = planeZ; // Estimated size for orthographic projection
@@ -58,9 +53,8 @@ export let aspect = w / h;
 let near = 0.1;
 let far = 1000;
 let position = new THREE.Vector3(0, 35, 25);
-let lookat   = new THREE.Vector3(0, 0, 4);
+let lookat   = new THREE.Vector3(0, 0, 0);
 let up       = new THREE.Vector3(0, 1, 0);
-
 const camera = new THREE.PerspectiveCamera (45, w / h, near, far);
     camera.position.copy(position);
     camera.up.copy(up);
@@ -69,21 +63,59 @@ scene.add( camera );
 orbit = new OrbitControls( camera, renderer.domElement );
 orbit.target = new THREE.Vector3(0, 0, 4);
 orbit.update();
+orbit.saveState();
+orbit.enabled = false;
 
-// LIGHT
-let dirLight = new THREE.DirectionalLight( 0xffffff , 0.4 ); //0.15
+// Audios
+const listener = new THREE.AudioListener();
+camera.add( listener );
+const audioLoader = new THREE.AudioLoader();  
+const backgroundSound = new THREE.Audio(listener);
+audioLoader.load('./assets/backgroundSound.mpeg', (buffer) => {
+    backgroundSound.setBuffer(buffer);
+    backgroundSound.setLoop(true);
+    backgroundSound.setVolume(0.15 );
+    backgroundSound.play();
+});
+const commonBrickSound = new THREE.Audio(listener);
+audioLoader.load('../assets/sounds/bloco1.mp3', (buffer) => {
+    commonBrickSound.setBuffer(buffer);
+    commonBrickSound.setLoop(false);
+    commonBrickSound.setVolume(0.1);
+});
+const specialBrickSound = new THREE.Audio(listener);
+audioLoader.load('../assets/sounds/bloco2.mp3', (buffer) => {
+    specialBrickSound.setBuffer(buffer);
+    specialBrickSound.setLoop(false);
+    specialBrickSound.setVolume(0.1);
+});
+const onFireSound = new THREE.Audio(listener);
+audioLoader.load('../assets/sounds/bloco3.mp3', (buffer) => {
+    onFireSound.setBuffer(buffer); 
+    onFireSound.setLoop(false);
+    onFireSound.setVolume(0.1);
+});
+const playerSound = new THREE.Audio(listener);
+audioLoader.load('../assets/sounds/rebatedor.mp3', (buffer) => {
+    playerSound.setBuffer(buffer);
+    playerSound.setLoop(false);
+    playerSound.setVolume(0.15);
+});
+
+// Lights
+let dirLight = new THREE.DirectionalLight( 0xffffff , 0.15 ); //0.15
     dirLight.position.set( 0, 20, -7 );
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 256;
-    dirLight.shadow.mapSize.height = 256;
+    dirLight.shadow.mapSize.width = 1028;
+    dirLight.shadow.mapSize.height = 1028;
     dirLight.shadow.camera.near = 0.1;
     dirLight.shadow.camera.far = 20 * 2;
     dirLight.shadow.camera.left = -planeX/2;
-    dirLight.shadow.camera.right = planeX/2
-    dirLight.shadow.camera.bottom = -planeZ/2
+    dirLight.shadow.camera.right = planeX/2;
+    dirLight.shadow.camera.bottom = -planeZ/2;
     dirLight.shadow.camera.top = planeZ/2;
 
-let ambientLight = new THREE.AmbientLight( 0xffffff, 0.35); // 0.1
+let ambientLight = new THREE.AmbientLight( 0xffffff, 0.15); // 0.1
 
 scene.add(dirLight, ambientLight);
 
@@ -187,13 +219,8 @@ function createBrickBoundingBoxes(brickBB, object){
 }
 
 // PLAYER
-let player = {
-    segments: 5, // odd and > 5
-    x: size.x/2,
-    y: size.y,
-    z: size.z/3 + planeX/100,
-}
-let cubeMesh = new THREE.Mesh(new THREE.BoxGeometry(planeX/2, planeX/2, planeX/2))
+const csgFinalMaterial = new THREE.MeshPhongMaterial({color: 0xF0F000, shininess: 50, specular: 0xdada00});
+let cubeMesh = new THREE.Mesh(new THREE.BoxGeometry(planeX/2, planeX/2, planeX/2),)
     cubeMesh.position.set(0, 0, 1);
     cubeMesh.matrixAutoUpdate = false;
     cubeMesh.updateMatrix();
@@ -212,28 +239,34 @@ let csgObject = sphereCSG.subtract(cubeCSG);
     cubeCSG = CSG.fromMesh(cubeMesh);
     csgObject = csgObject.subtract(cubeCSG);
 let csgFinal = CSG.toMesh(csgObject, new THREE.Matrix4());
-    csgFinal.material = new THREE.MeshPhongMaterial({color: 'red'});
-    csgFinal.position.set(0, size.positionY, planeZ/2 + csgFinal.geometry.boundingSphere.radius)
-    csgFinal.bb = new THREE.Sphere(sphereMesh.geometry.position, planeX/4)
+    csgFinal.material = csgFinalMaterial;
+    csgFinal.position.set(0, size.positionY, planeZ/2 + csgFinal.geometry.boundingSphere.radius - 2.5);
+    csgFinal.bb = new THREE.Sphere(sphereMesh.geometry.position, planeX/4);
     csgFinal.castShadow = true;
-    csgFinal.s
 scene.add(csgFinal);
-
-const playerLength = (csgFinal.geometry.boundingBox.max.x - csgFinal.geometry.boundingBox.min.x).toFixed(2);
-
-//brickGeometry = new THREE.BoxGeometry(player.x, player.y, player.z);
-
 const initialPositions = [];
 initialPositions.push(new THREE.Vector3().copy(csgFinal.position));
-const playerAngles = new Array(9) // Seven angles for hit against player
 
-for (let i = 0; i < playerAngles.length; i++){
-    playerAngles[i] = {};
-    // Activation region, 0 <= ball.x < x, x <= ball.x < 2x ...
-    playerAngles[i].x = (playerLength/playerAngles.length)*(i + 1)
-    playerAngles[i].value = Math.PI - (Math.PI/(playerAngles.length + 1)*(i + 1));
-    playerAngles[i].normal = new THREE.Vector3(Math.cos(playerAngles[i].value), 0, -Math.sin(playerAngles[i].value));
-}
+let gltfPlayer;
+let gltfInitialPosition;
+const playerLoader = new GLTFLoader();
+playerLoader.load('./assets/scene.gltf', function(gltf){
+    console.log(gltf);
+    gltfPlayer = gltf.scene;
+    gltf.scene.scale.copy(new THREE.Vector3(0.4, 0.35, -0.3));
+    gltfInitialPosition = new THREE.Vector3(-0.2, size.positionY/2, planeZ/2-2)
+    gltf.scene.position.copy(new THREE.Vector3().copy(gltfInitialPosition));
+    gltf.scene.traverse(function(node){
+        if (node.isMesh){
+            node.castShadow = true;
+        }
+    });
+    scene.add(gltf.scene)
+}, function(xhr){
+    console.log((xhr.loaded/xhr.total * 100) + "% loaded");
+}, function(){
+    console.log('An error occurred');
+});
 
 // Raycaster
 let leftBox = new SecondaryBox("");
@@ -248,7 +281,7 @@ let raycasterPlane = createGroundPlaneXZ(planeX, planeZ, 10, 10, planeColor);
 raycasterPlane.layers.set(0);
 raycasterPlane.receiveShadow = true;
 scene.add(raycasterPlane);
-
+ 
 let startTime;
 
 document.addEventListener('click', () => {
@@ -257,7 +290,6 @@ document.addEventListener('click', () => {
     ball.move = true;
     startTime = Date.now();
 }, {once: true});
-
 
 const LEFT_LIMIT = -planeX/2 + size.z/2; // RIGHT_LIMIT = -LEFT_LIMIT
 const LEFT_OFFSET = -planeX/2 + size.z/2 + csgFinal.geometry.boundingBox.max.x;
@@ -272,15 +304,18 @@ export function onMouseMove(event)
     // Calculate plane intersecting the picking ray
     let intersects = raycaster.intersectObject(raycasterPlane);
     // Check if there is a intersection
-    if (intersects.length > 0) {      
+    if (gltfPlayer && intersects.length > 0) {      
         let point = intersects[0].point; // Pick the point where interception occurrs
 
         if (point.x + csgFinal.geometry.boundingBox.min.x < LEFT_LIMIT){ // leftWall
             csgFinal.position.x = LEFT_OFFSET;
+            gltfPlayer.position.x = LEFT_OFFSET - 0.2;
         } else if (point.x + csgFinal.geometry.boundingBox.max.x > -LEFT_LIMIT){ //rightWall
             csgFinal.position.x = RIGHT_OFFSET;
+            gltfPlayer.position.x = RIGHT_OFFSET - 0.2;
         } else {
-            csgFinal.position.x = point.x
+            csgFinal.position.x = point.x;
+            gltfPlayer.position.x = point.x - 0.2;
         }
         csgFinal.bb.center.copy(csgFinal.position)
 
@@ -300,7 +335,7 @@ let speedMultiplier = 1;
 class Ball {
     constructor(radius){
         this.radius = radius;
-        this.speedConstant = planeX/200;
+        this.speedConstant = planeX/500;
         this.material = new THREE.MeshPhongMaterial({color : 0xffffff, shininess: 90, specular: 0x777777});
         this.object = new THREE.Mesh(new THREE.SphereGeometry(radius), this.material);
         this.bb = new THREE.Sphere(this.object.position, radius);
@@ -315,8 +350,8 @@ class Ball {
 }
 
 const angle15rad = Math.PI/12;
-function splitBall(){
-    let angle = new THREE.Vector2(ball.dx * 100, ball.dz * 100).angle();
+function splitBall(ballToSplit){
+    let angle = new THREE.Vector2(ballToSplit.dx * 100, ballToSplit.dz * 100).angle();
     ball.dx = Math.cos(angle + angle15rad) * ball.speedConstant;
     ball.dz = Math.sin(angle + angle15rad) * ball.speedConstant;
     secondaryBall.dx = Math.cos(angle - angle15rad) * secondaryBall.speedConstant;
@@ -326,21 +361,41 @@ function splitBall(){
 function duplicate(){
     if (!secondaryBall.object.visible){
         secondaryBall.object.position.copy(ball.object.position);
-        splitBall()
+        splitBall(ball)
         secondaryBall.object.visible = secondaryBall.move = true;
         numBalls++;
     }
     if (!ball.object.visible){
         ball.object.position.copy(secondaryBall.object.position);
-        splitBall()
+        splitBall(secondaryBall)
         ball.object.visible = ball.move = true;
         numBalls++;
     }
 }
 
-export let ball = new Ball(player.z/2.5);
+let onFire = false;
+function setFire(){
+    balls.forEach(ball => {
+        if (ball.object.visible){
+            ball.object.material.color.set(0xff0000);
+        }
+    });
+    onFire = true;
+    setTimeout(() => unsetFire(), 7000); // efeito 'Em chamas' dura 7 segundos
+}
+
+function unsetFire(){
+    balls.forEach(ball => {
+        ball.object.material.color.set(0xffffff);
+    });
+    onFire = false;
+}
+    
+
+export let ball = new Ball(size.z/4);
 ball.object.castShadow = true;
 ball.object.position.copy(csgFinal.position); // Initial position
+ball.object.position.y += 0.1;
 ball.object.translateZ(-sphereMesh.geometry.parameters.radius - ball.radius);
 initialPositions.push(new THREE.Vector3().copy(ball.object.position));
 scene.add(ball.object);
@@ -348,29 +403,48 @@ scene.add(ball.object);
 let secondaryBall = new Ball(ball.radius);
 secondaryBall.object.castShadow = true;
 secondaryBall.object.visible = false;
-scene.add(secondaryBall.object)
+scene.add(secondaryBall.object);
 let numBalls = 1;
 
+const balls = [ball, secondaryBall];
+
 // Create powerUp
-const powerUpGeometry = new THREE.TorusGeometry( 0.3, 0.15, 16, 100 ); 
-const powerUpMaterial = new THREE.MeshPhongMaterial({
+const powerUpGeometry = new THREE.CapsuleGeometry( 0.3, 0.3, 5, 15 ); 
+const powerUpTMaterial = new THREE.MeshPhongMaterial({
     color: 0xFFFF00,
     shininess: 100,
     specular: 0x333333
 }); 
-const torus = new THREE.Mesh( powerUpGeometry, powerUpMaterial );
-    torus.rotateOnAxis(new THREE.Vector3( 1, 0, 0), THREE.MathUtils.degToRad(90))
-    torus.visible = false;
-    torus.speed = -ball.initialDz/4;
+const powerUpSMaterial = new THREE.MeshPhongMaterial({
+    color: 0x00FF44,
+    shininess: 100,
+    specular: 0x333333
+}); 
+const powerUpT = new THREE.Mesh( powerUpGeometry, powerUpTMaterial );
+    powerUpT.rotateOnAxis(new THREE.Vector3( 1, 0, 0), THREE.MathUtils.degToRad(90))
+    powerUpT.rotateOnAxis(new THREE.Vector3( 0, 0, 1), THREE.MathUtils.degToRad(90))
+    powerUpT.visible = false;
+    powerUpT.speed = -ball.initialDz/4;
+    powerUpT.material.map = textureLoader.load('./assets/textureT.png');
+const powerUpS = new THREE.Mesh( powerUpGeometry, powerUpSMaterial );
+    powerUpS.rotateOnAxis(new THREE.Vector3( 1, 0, 0), THREE.MathUtils.degToRad(90))
+    powerUpS.rotateOnAxis(new THREE.Vector3( 0, 0, 1), THREE.MathUtils.degToRad(90))
+    powerUpS.visible = false;
+    powerUpS.speed = -ball.initialDz/4;
+    powerUpS.material.map = textureLoader.load('./assets/textureT.png');
+const powerUps = [powerUpT, powerUpS];
+let powerUpSwitch = true;
 let powerUpCounter = 0;
-scene.add( torus );
+scene.add( powerUpT , powerUpS);
 
 // Collisions detection 
-const BALL_INFERIOR_LIMIT = planeZ/2 - csgFinal.geometry.boundingSphere.   radius;
+const BALL_INFERIOR_LIMIT = planeZ/2 - csgFinal.geometry.boundingSphere.radius - 2.5;
+const BALL_PLAYER_LIMIT = planeZ/2 - csgFinal.geometry.boundingSphere.radius;
 const BALL_SIDE_LIMIT = leftWall.object.position.x + size.x;
 let BALL_BRICK_LIMIT = bricks[rowsAmount-1][bricksAmount-1].object.position.z + size.z*2;
-let angle;
-import { remainingLives, decreaseLives } from './lives.js';
+import { remainingLives, decreaseLives, resetLives } from './lives.js';
+let powerUpInferiorLimit;
+let ballInferiorLimit;
 function checkCollisions(ball) {
     // Collision with the walls
     if (ball.object.position.z - ball.radius < -BALL_INFERIOR_LIMIT && ball.bb.intersectsBox(topWall.bb)){
@@ -405,58 +479,76 @@ function checkCollisions(ball) {
     }
 
     // If power up is completely out of the bounds, reset the positions
-    if (torus.position.z - torus.geometry.parameters.radius > planeZ/2){
-        torus.visible = false;
-    }
-
+    powerUps.forEach((powerUp) => {
+        if (powerUp.position.z - powerUp.geometry.parameters.radius > planeZ/2){
+            powerUp.visible = false;
+        }
+    });
     // Collsion with the player
     // Only verifies when the ball is near the player, otherwise it won't execute aiming optimization
-    if (ball.object.position.z + ball.radius > BALL_INFERIOR_LIMIT ){
-        if (ball.bb.intersectsSphere(csgFinal.bb) && ball.object.position.z + ball.radius < planeZ){
-            angle = playerAngles.find(angle => {
-                return ball.bb.center.x < (csgFinal.bb.center.x - playerLength/2 + angle.x)
-            })
-            if (angle){
-                let direction = new THREE.Vector3(ball.dx * 1000, 0, ball.dz * 1000 ).normalize();
-                direction.reflect(angle.normal);
-                ball.dx = direction.x * ball.speedConstant;
-                ball.dz = -Math.abs(direction. z) * ball.speedConstant;
-            }
+    ballInferiorLimit = ball.object.position.z + ball.radius;
+    if (ballInferiorLimit > BALL_INFERIOR_LIMIT && ballInferiorLimit < BALL_PLAYER_LIMIT){
+        if (ball.bb.intersectsSphere(csgFinal.bb)){
+            let direction = new THREE.Vector3(ball.dx * 1000, 0, ball.dz * 1000 ).normalize();
+            let normal = new THREE.Vector3(csgFinal.bb.center.x - ball.object.position.x, 0, csgFinal.bb.center.z - ball.object.position.z ).normalize();
+            direction.reflect(normal);
+            ball.dx = direction.x * ball.speedConstant;
+            ball.dz = -Math.abs(direction. z) * ball.speedConstant;
+
+            if (playerSound.isPlaying) playerSound.stop();
+            playerSound.play();
         }
     }
     // Collsion with the powerUp
-    if (torus.visible && (torus.position.z + torus.geometry.parameters.radius > BALL_INFERIOR_LIMIT)){
-        if (torus.bb.intersectsSphere(csgFinal.bb)){
-            torus.visible = false;
-            duplicate();
+    powerUps.forEach((powerUp, index) => {
+        powerUpInferiorLimit = powerUp.position.z + powerUp.geometry.parameters.radius;
+        if (powerUp.visible && (powerUpInferiorLimit > BALL_INFERIOR_LIMIT) && (powerUpInferiorLimit < BALL_PLAYER_LIMIT)){
+            if (powerUp.bb.intersectsSphere(csgFinal.bb)){
+                powerUp.visible = false;
+                switch(index){
+                    case 0: duplicate(); break;
+                    case 1: setFire(); break;
+                }
+                    
+            }
         }
-    }
+    });
 
     // Collision with the bricks
     if (ball.object.position.z - ball.radius < BALL_BRICK_LIMIT){
         for (let i = 0; i < rowsAmount; i++){
             for (let j = 0; j < bricksAmount; j++){
-                if (bricks[i][j].bb && ball.bb && ball.bb.intersectsBox(bricks[i][j].bb[0])){
-                    if (ball.bb.intersectsBox(bricks[i][j].bb[1])){
-                        ball.dz = Math.abs(ball.dz);
-                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[2])){
-                        ball.dz = ball.dz > 0 ? -ball.dz : ball.dz;
-                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[3])){
-                        ball.dx = ball.dx > 0 ? -ball.dx : ball.dx;
-                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[4])){
-                        ball.dx = Math.abs(ball.dx);
-                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[5])){ // Corners
-                        ball.dx = -Math.abs(ball.dx);
-                        ball.dz = -Math.abs(ball.dz);
-                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[6])){
-                        ball.dx = Math.abs(ball.dx);
-                        ball.dz = -Math.abs(ball.dz);
-                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[7])){
-                        ball.dx = -Math.abs(ball.dx);
-                        ball.dz = Math.abs(ball.dz);
-                    } else if (ball.bb.intersectsBox(bricks[i][j].bb[8])){
-                        ball.dx = Math.abs(ball.dx);
-                        ball.dz = Math.abs(ball.dz);
+                if (bricks[i][j].bb && ball.bb && ball.bb.intersectsBox(bricks[i][j].bb[0])){  
+                    // If the brick is golden or the ball is on fire then it collides
+                    if (bricks[i][j].object.material.color.getHexString() === 'ffd93c' || ball.object.material.color.getHexString() !== 'ff0000'){
+                        if (ball.bb.intersectsBox(bricks[i][j].bb[1])){
+                            ball.dz = Math.abs(ball.dz);
+                        } else if (ball.bb.intersectsBox(bricks[i][j].bb[2])){
+                            ball.dz = ball.dz > 0 ? -ball.dz : ball.dz;
+                        } else if (ball.bb.intersectsBox(bricks[i][j].bb[3])){
+                            ball.dx = ball.dx > 0 ? -ball.dx : ball.dx;
+                        } else if (ball.bb.intersectsBox(bricks[i][j].bb[4])){
+                            ball.dx = Math.abs(ball.dx);
+                        } else if (ball.bb.intersectsBox(bricks[i][j].bb[5])){ // Corners
+                            if (onFire) 
+                                ball.dx = -Math.abs(ball.dx);
+                            ball.dz = -Math.abs(ball.dz);
+                        } else if (ball.bb.intersectsBox(bricks[i][j].bb[6])){
+                            if (onFire) 
+                                ball.dx = Math.abs(ball.dx);
+                            ball.dz = -Math.abs(ball.dz);
+                        } else if (ball.bb.intersectsBox(bricks[i][j].bb[7])){
+                            if (onFire) 
+                                ball.dx = -Math.abs(ball.dx);
+                            ball.dz = Math.abs(ball.dz);
+                        } else if (ball.bb.intersectsBox(bricks[i][j].bb[8])){
+                            if (onFire) 
+                                ball.dx = Math.abs(ball.dx);
+                            ball.dz = Math.abs(ball.dz);
+                        }
+                    } else {
+                        if (onFireSound.isPlaying) onFireSound.stop();
+                        onFireSound.play();
                     }
 
                     // golden bricks are indestructible 
@@ -465,22 +557,33 @@ function checkCollisions(ball) {
                     }
 
                     // change gray bricks' color after first hit
-                    // if (bricks[i][j].object.material.color.getHexString() === colors[0]){
                     if (bricks[i][j].object.material.map?.isTexture){
                         bricks[i][j].object.material.color.set("#a0a0a0");
                         bricks[i][j].object.material.map = null;
                         bricks[i][j].object.material.needsUpdate = true;
+                        if (specialBrickSound.isPlaying) specialBrickSound.stop();
+                        specialBrickSound.play();
                         continue;
                     }
                     
                     bricksLeft--;
                     bricks[i][j].object.visible = false;
                     bricks[i][j].bb[0].makeEmpty();
-                   
-                    if (!torus.visible && numBalls == 1 && powerUpCounter++ && powerUpCounter == 2){
-                        torus.position.copy(bricks[i][j].object.position);
-                        torus.bb = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(torus);
-                        torus.visible = true;
+                    if (commonBrickSound.isPlaying) commonBrickSound.stop();
+                    commonBrickSound.play();
+                    powerUpCounter++;
+                    if (powerUpCounter == 2){
+                        if (!powerUpT.visible && numBalls == 1 && powerUpSwitch){
+                            powerUpT.position.copy(bricks[i][j].object.position);
+                            powerUpT.bb = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(powerUpT);
+                            powerUpT.visible = true;
+                            powerUpSwitch = !powerUpSwitch;
+                        } else if (!powerUpS.visible && (!powerUpSwitch || numBalls > 1) && !onFire){            
+                            powerUpS.position.copy(bricks[i][j].object.position);
+                            powerUpS.bb = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()).setFromObject(powerUpS);
+                            powerUpS.visible = true;
+                            powerUpSwitch = !powerUpSwitch;
+                        }
                         powerUpCounter = 0;
                     }
         
@@ -502,17 +605,22 @@ function moveBall(ball){
     } else {
         speedMultiplier = 2;
     }
-    if (torus.visible){
-        torus.position.z += torus.speed;
-        torus.rotation.x += 0.01;
-        torus.rotation.y += 0.01;
-        torus.bb.min.z += torus.speed;
-        torus.bb.max.z += torus.speed;
-    }
    
     ball.object.position.x += ball.dx * Math.pow(speedMultiplier, 1/2);
     ball.object.position.z += ball.dz * Math.pow(speedMultiplier, 1/2);
     ball.bb.center.copy(ball.object.position);
+}
+
+function movePowerUp(){
+    powerUps.forEach((powerUp) => {
+        if (powerUp.visible){
+            powerUp.position.z += powerUp.speed;
+            powerUp.rotation.x += 0.01;
+            powerUp.rotation.y += 0.01;
+            powerUp.bb.min.z += powerUp.speed;
+            powerUp.bb.max.z += powerUp.speed;
+        }
+    });
 }
 
 render();
@@ -529,11 +637,12 @@ function render()
                 moveBall(secondaryBall);
                 checkCollisions(secondaryBall);
             }
+            movePowerUp();
         }
         
         if (bricksLeft === 0){
             if (level == 2){
-                 end() 
+                end() 
             } else {
                 nextLevel();
             }
@@ -558,6 +667,7 @@ function resetPosition(){
     pause(true)
     csgFinal.position.copy(initialPositions[0]);
     csgFinal.bb.center.copy(csgFinal.position);
+    gltfPlayer.position.copy(gltfInitialPosition);
     ball.object.position.copy(initialPositions[initialPositions.length - 1]);
     ball.bb.center.copy(ball.object.position);
     ball.dx = Math.cos(Math.PI / 2) * ball.speedConstant;
@@ -574,9 +684,11 @@ function resetPosition(){
 }
 
 export function restart(){
+    bricksLeft = 0;
     for (let i = 0; i < rowsAmount; i++){
         for (let j = 0; j < bricksAmount; j++){
             if (!bricks[i][j].object) continue;
+            bricksLeft++;
             bricks[i][j].object.visible = true;
             bricks[i][j].bb[0].copy(bricks[i][j].object.geometry.boundingBox).applyMatrix4(bricks[i][j].object.matrixWorld);
             if (bricks[i][j].object.material.color.getHexString() === "a0a0a0"){
@@ -587,13 +699,15 @@ export function restart(){
                 bricks[i][j].object.material.needsUpdate = true;
             }
         }
-    }
+    }  
+    resetLives();
     resetPosition();
-    bricksLeft = rowsAmount * bricksAmount;
     menu.querySelector("h1").innerText = 'Jogo pausado';
     speedMultiplier = 1;
     startTime = Date.now();
-    torus.visible = false;
+    powerUps.forEach((powerUp) => {
+        powerUp.visible = false;
+    });
 }
 
 let startPauseTime;
@@ -610,10 +724,17 @@ export function pause(pause){
         if (secondaryBall.object.visible) secondaryBall.move = true;
         document.addEventListener('mousemove', onMouseMove);
         
-        if (startPauseTime)
+        if (startTime && startPauseTime)
             startTime += Date.now() - startPauseTime;
         else 
             startTime = Date.now();
+    }
+}
+
+export function toggleOrbit(toggle){
+    orbit.enabled = toggle;
+    if (!orbit.enabled){
+        orbit.reset();
     }
 }
 
@@ -641,7 +762,9 @@ export function nextLevel(){
     speedMultiplier = 1;
     bricksLeft = 0;
     
-    torus.visible = false
+    powerUps.forEach((powerUp) => {
+        powerUp.visible = false;
+    });
     startTime = Date.now();
 
     createLevel(level);
@@ -722,7 +845,6 @@ function createLevel(level){
                     if (j == 1 || j == 9) continue;
                     if (j % 2 === 1 && i !== 3) continue;
         
-                    bricksLeft++;
                     // Choose the color
                     if ((j == 0 || j == 10) && i != 9) currentColor = colors[0];
                     else if (j == 2 || j == 8) {
@@ -734,6 +856,7 @@ function createLevel(level){
                         else currentColor = colors[2];
                     }
                     else currentColor = colors[3];
+                    if (currentColor !== colors[4]) bricksLeft++;
 
 
                     let brick = new THREE.Mesh(brickGeometry, new THREE.MeshLambertMaterial({color: "#"+currentColor}));

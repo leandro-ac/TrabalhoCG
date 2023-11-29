@@ -47,7 +47,52 @@
     width: 200px;
     height: 100px;
     position: fixed ;
-    top: 0;
-    right: 0;
+    top: 5px;
+    right: 5px;
     border: 2px solid #00db6437;
+    border-radius: 5px;
+}
+
+#fullscreen, #start, #restart {
+    border: none;
+    background: none;
+    background-color: #00db6427;
+    width: 60px;
+    height: 60px;
+    position: fixed ;
+    top: 5px;
+    border: 2px solid #00db6437;
+    border-radius: 5px;
+}
+
+#fullscreen {
+    left: 5px;
+}
+
+#start {
+    width: 60px;
+    height: 60px;
+    top: 70px;
+    left: 5px;
+}
+
+#restart {
+    width: 60px;
+    height: 60px;
+    right: 210px;
+}
+
+#fullscreen:active, #start:active, #restart:active {
+    background-color: #00db6455;
+}
+
+@media (max-width: 1024px) {
+    #lives {
+        width: 100px;
+        height: 60px;
+    }
+
+    #restart {
+        right: 110px;
+    }
 }
